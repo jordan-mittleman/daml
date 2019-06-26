@@ -22,6 +22,7 @@ import Text.Dot
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Generics.Uniplate.Data
+import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -52,10 +53,36 @@ startFromExpr seen world e = case e of
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
-startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
+startFromChoice world chc = actions
+    where actions = startFromExpr Set.empty world (LF.chcUpdate chc)
+
+actionNameAndChoice :: Action -> String
+actionNameAndChoice (ACreate  (LF.Qualified _ _ tpl) ) = "create" ++ DAP.renderPretty tpl
+actionNameAndChoice (AExercise  (LF.Qualified _ _ tpl) chc ) = "exercise" ++ "::" ++ DAP.renderPretty chc ++ "->" ++ DAP.renderPretty tpl
+
+data TemplateChoiceInfo = TemplateChoiceInfo { templateName :: LF.Template
+                                            , choiceName :: LF.TemplateChoice
+                                            , actions :: [Action]
+                                 -- , actions :: [(String, String)] -- [(choice, inTemplate)]
+                                            }
+-- data TemplateInfo = TemplateInfo { template :: LF.Template
+--                                 ,  choiceAndRes :: [TemplateChoiceInfo]
+--                                 }
+
+collectTemplateChoiceInfo :: LF.Template -> LF.TemplateChoice -> Set.Set Action -> TemplateChoiceInfo
+collectTemplateChoiceInfo  tpl chc actions = TemplateChoiceInfo tpl chc (Set.elems actions)
+
+collectTemplateChoiceInfoPretty :: TemplateChoiceInfo -> String
+collectTemplateChoiceInfoPretty TemplateChoiceInfo {..} = (DAP.renderPretty $ LF.tplTypeCon templateName) ++ " "++ (DAP.renderPretty $ LF.chcName choiceName) ++ "->" ++(show $ (map actionNameAndChoice) actions)
+
 
 templatePossibleUpdates :: LF.World -> LF.Template -> Set.Set Action
-templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM.toList (LF.tplChoices tpl))
+templatePossibleUpdates world tpl = trace ("t->c" ++  show actionsMap) $ Set.unions actions
+    where choices = (NM.toList (LF.tplChoices tpl))
+          actions =   map (\c -> startFromChoice world c) choices
+          actionsS =  map (\c -> collectTemplateChoiceInfo tpl  c (startFromChoice world c)   ) choices
+          actionsMap = map collectTemplateChoiceInfoPretty actionsS
+
 
 moduleAndTemplates :: LF.World -> LF.Module -> [(LF.TypeConName, Set.Set Action)]
 moduleAndTemplates world mod = retTypess
@@ -80,7 +107,7 @@ templateInAction (ACreate  (LF.Qualified _ _ tpl) ) = tpl
 templateInAction (AExercise  (LF.Qualified _ _ tpl) _ ) = tpl
 
 srcLabel :: (LF.TypeConName, Set.Set Action) -> [(String, String)]
-srcLabel (tc, _) = [ ("shape","none"),("label",DAP.renderPretty tc) ]
+srcLabel (tc, _) = [ ("shape","record"),("label",DAP.renderPretty tc) ]
 
 templatePairs :: (LF.TypeConName, Set.Set Action) -> (LF.TypeConName , (LF.TypeConName , Set.Set Action))
 templatePairs (tc, actions) = (tc , (tc, actions))
