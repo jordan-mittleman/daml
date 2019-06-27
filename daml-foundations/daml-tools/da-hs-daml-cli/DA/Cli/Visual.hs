@@ -22,6 +22,7 @@ import Text.Dot
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Generics.Uniplate.Data
+import Data.List.Extra
 import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
@@ -56,33 +57,53 @@ startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = actions
     where actions = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-actionNameAndChoice :: Action -> String
-actionNameAndChoice (ACreate  (LF.Qualified _ _ tpl) ) = "create" ++ DAP.renderPretty tpl
-actionNameAndChoice (AExercise  (LF.Qualified _ _ tpl) chc ) = "exercise" ++ "::" ++ DAP.renderPretty chc ++ "->" ++ DAP.renderPretty tpl
+type ChoiceAction = String
+
+actionNameAndChoice :: Action -> ChoiceAction
+actionNameAndChoice (ACreate  (LF.Qualified _ _ tpl) ) = trim $ DAP.renderPretty tpl ++ "_" ++ "Create"
+actionNameAndChoice (AExercise  (LF.Qualified _ _ tpl) chc ) = trim $ DAP.renderPretty tpl ++ "_" ++ (trim $ DAP.renderPretty chc)
 
 data TemplateChoiceInfo = TemplateChoiceInfo { templateName :: LF.Template
                                             , choiceName :: LF.TemplateChoice
                                             , actions :: [Action]
                                  -- , actions :: [(String, String)] -- [(choice, inTemplate)]
                                             }
--- data TemplateInfo = TemplateInfo { template :: LF.Template
---                                 ,  choiceAndRes :: [TemplateChoiceInfo]
---                                 }
+
+-- ChoiceAction -> [ChoiceAction]
+-- (ChoiceAction, ChoiceAction)
 
 collectTemplateChoiceInfo :: LF.Template -> LF.TemplateChoice -> Set.Set Action -> TemplateChoiceInfo
 collectTemplateChoiceInfo  tpl chc actions = TemplateChoiceInfo tpl chc (Set.elems actions)
 
+
 collectTemplateChoiceInfoPretty :: TemplateChoiceInfo -> String
-collectTemplateChoiceInfoPretty TemplateChoiceInfo {..} = (DAP.renderPretty $ LF.tplTypeCon templateName) ++ " "++ (DAP.renderPretty $ LF.chcName choiceName) ++ "->" ++(show $ (map actionNameAndChoice) actions)
+collectTemplateChoiceInfoPretty TemplateChoiceInfo {..} =
+    (DAP.renderPretty $ LF.tplTypeCon templateName) ++ "_"++
+    (DAP.renderPretty $ LF.chcName choiceName) ++ "->" ++(show $ (map actionNameAndChoice) actions)
 
+templateNameAndChoice :: LF.Template -> LF.TemplateChoice -> ChoiceAction
+templateNameAndChoice tplName choice =
+    (DAP.renderPretty $ LF.tplTypeCon tplName) ++ "_" ++ (DAP.renderPretty $ LF.chcName choice)
 
+-- trace ("t->c" ++ show actionsMap) $
 templatePossibleUpdates :: LF.World -> LF.Template -> Set.Set Action
-templatePossibleUpdates world tpl = trace ("t->c" ++  show actionsMap) $ Set.unions actions
+templatePossibleUpdates world tpl = Set.unions actions
     where choices = (NM.toList (LF.tplChoices tpl))
           actions =   map (\c -> startFromChoice world c) choices
           actionsS =  map (\c -> collectTemplateChoiceInfo tpl  c (startFromChoice world c)   ) choices
           actionsMap = map collectTemplateChoiceInfoPretty actionsS
 
+
+templatePossibleUpdates' :: LF.World -> LF.Template -> [TemplateChoiceInfo]
+templatePossibleUpdates' world tpl = actionsS
+    where choices = (NM.toList (LF.tplChoices tpl))
+          actionsS =  map (\c -> collectTemplateChoiceInfo tpl  c (startFromChoice world c)   ) choices
+          -- actionsMap = map collectTemplateChoiceInfoPretty actionsS
+
+choicePairs :: TemplateChoiceInfo -> [(ChoiceAction, ChoiceAction)]
+choicePairs TemplateChoiceInfo {..} = map (\c -> (forChoice, c )) choices
+    where forChoice = templateNameAndChoice templateName choiceName
+          choices = map actionNameAndChoice actions
 
 moduleAndTemplates :: LF.World -> LF.Module -> [(LF.TypeConName, Set.Set Action)]
 moduleAndTemplates world mod = retTypess
@@ -90,6 +111,12 @@ moduleAndTemplates world mod = retTypess
         templates = NM.toList $ LF.moduleTemplates mod
         retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
 
+
+moduleAndTemplates' :: LF.World -> LF.Module -> [TemplateChoiceInfo]
+moduleAndTemplates' world mod = retTypess
+    where
+        templates = NM.toList $ LF.moduleTemplates mod
+        retTypess = concatMap (\t-> (templatePossibleUpdates' world t )) templates
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
@@ -102,6 +129,11 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
 
+-- choicesInAction :: Action -> String
+-- choicesInAction (ACreate  (LF.Qualified _ _ tpl) ) = "create" ++ DAP.renderPretty tpl
+-- choicesInAction (AExercise  (LF.Qualified _ _ tpl) chc ) = "exercise" ++ "::" ++ DAP.renderPretty chc ++ "->" ++ DAP.renderPretty tpl
+
+
 templateInAction :: Action -> LF.TypeConName
 templateInAction (ACreate  (LF.Qualified _ _ tpl) ) = tpl
 templateInAction (AExercise  (LF.Qualified _ _ tpl) _ ) = tpl
@@ -109,9 +141,12 @@ templateInAction (AExercise  (LF.Qualified _ _ tpl) _ ) = tpl
 srcLabel :: (LF.TypeConName, Set.Set Action) -> [(String, String)]
 srcLabel (tc, _) = [ ("shape","record"),("label",DAP.renderPretty tc) ]
 
+
+-- templatePairs :: [(A, B)]
 templatePairs :: (LF.TypeConName, Set.Set Action) -> (LF.TypeConName , (LF.TypeConName , Set.Set Action))
 templatePairs (tc, actions) = (tc , (tc, actions))
 
+-- actionsForTemplate :: B -> [A]
 actionsForTemplate :: (LF.TypeConName, Set.Set Action) -> [LF.TypeConName]
 actionsForTemplate (_tplCon, actions) = Set.elems $ Set.map templateInAction actions
 
@@ -150,7 +185,11 @@ execVisual darFilePath dotFilePath = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
-        res = concatMap (moduleAndTemplates world) modules
+        res = concatMap (moduleAndTemplates world) modules --
+        -------------
+        tplChoices = concatMap (moduleAndTemplates' world) modules
+        choicePairsL = map choicePairs tplChoices
+        -------------
         actionEdges = map templatePairs res
         dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
     case dotFilePath of
