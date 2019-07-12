@@ -9,6 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- [DAML Studio] VSCode scenario view improvements. Add a note in the IDE if:
+
+  + there is an open scenario view for a scenario that does no longer exist,
+
+  + there is an open scenario view for a scenario in a file that does no longer compile.
+
 - [daml assistant] Fix VSCode path for use if not already in PATH on mac
 - [daml assistant] **BREAKING**: remove `--replace=newer` option.
 - [DAML Studio] Fix a bug where the extension seemed to disappear every other
