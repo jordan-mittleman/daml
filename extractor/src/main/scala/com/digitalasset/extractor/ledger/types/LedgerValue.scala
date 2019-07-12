@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.value.{Value => V}
 object LedgerValue {
 
   import scala.language.higherKinds
-  type OfCid[F[+ _]] = F[String]
+  type OfCid[F[+ _, + _]] = F[String, V.NotTyped]
 
   private val variantValueLens = ReqFieldLens.create[api.value.Variant, api.value.Value]('value)
 
@@ -39,13 +39,15 @@ object LedgerValue {
       case Sum.Bool(value) => V.ValueBool(value).right
       case Sum.ContractId(value) => V.ValueContractId(value).right
       case Sum.Int64(value) => V.ValueInt64(value).right
-      case Sum.Decimal(value) => lfdata.Decimal.fromString(value).disjunction map V.ValueDecimal
+      case Sum.Decimal(value) =>
+        lfdata.Decimal.fromString(value).disjunction map V.ValueDecimal.apply
       case Sum.Text(value) => V.ValueText(value).right
       case Sum.Timestamp(value) =>
-        lfdata.Time.Timestamp.fromLong(value).disjunction map V.ValueTimestamp
-      case Sum.Party(value) => Ref.Party.fromString(value).disjunction map V.ValueParty
-      case Sum.Date(value) => lfdata.Time.Date.fromDaysSinceEpoch(value).disjunction map V.ValueDate
-      case Sum.Unit(_) => V.ValueUnit.right
+        lfdata.Time.Timestamp.fromLong(value).disjunction map V.ValueTimestamp.apply
+      case Sum.Party(value) => Ref.Party.fromString(value).disjunction map V.ValueParty.apply
+      case Sum.Date(value) =>
+        lfdata.Time.Date.fromDaysSinceEpoch(value).disjunction map V.ValueDate.apply
+      case Sum.Unit(_) => V.ValueUnit().right
       case Sum.Empty => -\/("uninitialized Value")
     }
   }

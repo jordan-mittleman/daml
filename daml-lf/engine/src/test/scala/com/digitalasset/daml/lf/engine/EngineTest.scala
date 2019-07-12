@@ -718,7 +718,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   "translate list value" should {
     "translate empty list" in {
-      val list = ValueList(FrontStack.empty[Value[AbsoluteContractId]])
+      val list = ValueList(FrontStack.empty[Value[AbsoluteContractId, WellTyped]])
       val res = commandTranslator
         .translateValue(TList(TBuiltin(BTInt64)), assertAsVersionedValue(list))
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1053,7 +1053,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       (Some[Name]("fetcher"), ValueParty(party)),
     )
 
-    def makeContract[Cid](tid: Ref.QualifiedName, targs: ImmArray[(Option[Name], Value[Cid])]) =
+    def makeContract[Cid](
+        tid: Ref.QualifiedName,
+        targs: ImmArray[(Option[Name], Value[Cid, WellTyped])]) =
       ContractInst(
         TypeConName(basicTestsPkgId, tid),
         assertAsVersionedValue(ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs)),

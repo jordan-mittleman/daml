@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeC
 import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.transaction.Node._
 import VersionTimeline.Implicits._
-import com.digitalasset.daml.lf.value.Value.{ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{ContractInst, WellTyped, VersionedValue}
 import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass, ValueVersion}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.ProtocolStringList
@@ -385,7 +385,7 @@ object TransactionCoder {
   private[transaction] def encodeTransaction[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
-      tx: GenTransaction[Nid, Cid, VersionedValue[Cid]])
+      tx: GenTransaction[Nid, Cid, VersionedValue[Cid, WellTyped]])
     : Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
       encodeNid,
@@ -417,11 +417,12 @@ object TransactionCoder {
         encodeNode(
           encodeNid,
           encodeCid,
-          (v: VersionedValue[Cid]) =>
+          (v: VersionedValue[Cid, WellTyped]) =>
             ValueCoder.encodeVersionedValueWithCustomVersion(encodeCid, v).map((v.version, _)),
           txVersion,
           id,
-          node)
+          node
+        )
     }
     mbNodes.map(nodes => {
       TransactionOuterClass.Transaction

@@ -30,7 +30,7 @@ sealed trait Event[+Nid, +Cid, +Val] extends Product with Serializable {
   *  @param observers as defined by the template or implicitly as choice controllers
   *  @param witnesses additional witnesses induced by parent exercises
   */
-final case class CreateEvent[Cid, Val](
+final case class CreateEvent[Cid, +Val](
     contractId: Cid,
     templateId: Identifier,
     contractKey: Option[KeyWithMaintainers[Val]],
@@ -73,7 +73,7 @@ final case class CreateEvent[Cid, Val](
   *  @param witnesses additional witnesses induced by parent exercises
   *  @param exerciseResult result of exercise of the choice. Optional since this feature was introduced in transaction version 6.
   */
-final case class ExerciseEvent[Nid, Cid, Val](
+final case class ExerciseEvent[Nid, Cid, +Val](
     contractId: Cid,
     templateId: Identifier,
     choice: ChoiceName,
@@ -99,7 +99,7 @@ final case class ExerciseEvent[Nid, Cid, Val](
 }
 
 object Event {
-  case class Events[Nid, Cid, Val](roots: ImmArray[Nid], events: Map[Nid, Event[Nid, Cid, Val]]) {
+  case class Events[Nid, Cid, +Val](roots: ImmArray[Nid], events: Map[Nid, Event[Nid, Cid, Val]]) {
     // filters from the leaves upwards: if any any exercise node returns false all its children will be purged, too
     def filter(f: Event[Nid, Cid, Val] => Boolean): Events[Nid, Cid, Val] = {
       val liveEvts = scala.collection.mutable.Map[Nid, Event[Nid, Cid, Val]]()

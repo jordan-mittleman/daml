@@ -952,15 +952,15 @@ object Ledger {
   // Enriching transactions with disclosure information
   //----------------------------------------------------------------------------
 
-  def collectCoids(value: VersionedValue[ContractId]): Set[ContractId] =
+  def collectCoids(value: VersionedValue[ContractId, NotTyped]): Set[ContractId] =
     collectCoids(value.value)
 
   /** Collect all contract ids appearing in a value
     */
-  def collectCoids(value: Value[ContractId]): Set[ContractId] = {
+  def collectCoids(value: Value[ContractId, NotTyped]): Set[ContractId] = {
     val coids =
       implicitly[CanBuildFrom[Nothing, ContractId, Set[ContractId]]].apply()
-    def collect(v: Value[ContractId]): Unit =
+    def collect(v: Value[ContractId, NotTyped]): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>
           fs.foreach {
@@ -971,19 +971,19 @@ object Ledger {
             case (_, v) => collect(v)
           }
         case ValueVariant(_, _, arg) => collect(arg)
-        case _: ValueEnum => ()
+        case _: ValueEnum[_] => ()
         case ValueList(vs) =>
           vs.foreach(collect)
         case ValueContractId(coid) =>
           coids += coid
-        case _: ValueInt64 => ()
-        case _: ValueDecimal => ()
-        case _: ValueText => ()
-        case _: ValueTimestamp => ()
-        case _: ValueParty => ()
-        case _: ValueBool => ()
-        case _: ValueDate => ()
-        case ValueUnit => ()
+        case _: ValueInt64[_] => ()
+        case _: ValueDecimal[_] => ()
+        case _: ValueText[_] => ()
+        case _: ValueTimestamp[_] => ()
+        case _: ValueParty[_] => ()
+        case _: ValueBool[_] => ()
+        case _: ValueDate[_] => ()
+        case ValueUnit() => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueMap(map) => map.values.foreach(collect)
       }
@@ -992,9 +992,9 @@ object Ledger {
     coids.result()
   }
 
-  def makeAbsolute(
+  def makeAbsolute[Status](
       commitPrefix: LedgerString,
-      value: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] = {
+      value: VersionedValue[ContractId, Status]): VersionedValue[AbsoluteContractId, Status] = {
     VersionedValue(value.version, makeAbsolute(commitPrefix, value.value))
   }
 
@@ -1002,17 +1002,17 @@ object Ledger {
     *
     * TODO(FM) make this tail recursive
     */
-  def makeAbsolute(
+  def makeAbsolute[Status](
       commitPrefix: LedgerString,
-      value: Value[ContractId]): Value[AbsoluteContractId] = {
-    def rewrite(v: Value[ContractId]): Value[AbsoluteContractId] =
+      value: Value[ContractId, Status]): Value[AbsoluteContractId, Status] = {
+    def rewrite(v: Value[ContractId, Status]): Value[AbsoluteContractId, Status] =
       v match {
         case ValueRecord(tycon, fs) =>
-          ValueRecord(tycon, fs.map[(Option[Name], Value[AbsoluteContractId])] {
+          ValueRecord(tycon, fs.map[(Option[Name], Value[AbsoluteContractId, Status])] {
             case (k, v) => (k, rewrite(v))
           })
         case ValueTuple(fs) =>
-          ValueTuple(fs.map[(Name, Value[AbsoluteContractId])] {
+          ValueTuple(fs.map[(Name, Value[AbsoluteContractId, Status])] {
             case (k, v) => (k, rewrite(v))
           })
         case ValueVariant(tycon, variant, value) =>
@@ -1021,15 +1021,15 @@ object Ledger {
         case ValueContractId(coid) =>
           val acoid = contractIdToAbsoluteContractId(commitPrefix, coid)
           ValueContractId(acoid)
-        case vEnum: ValueEnum => vEnum
-        case vlit: ValueInt64 => vlit
-        case vlit: ValueDecimal => vlit
-        case vlit: ValueText => vlit
-        case vlit: ValueTimestamp => vlit
-        case vlit: ValueParty => vlit
-        case vlit: ValueBool => vlit
-        case vlit: ValueDate => vlit
-        case ValueUnit => ValueUnit
+        case vEnum: ValueEnum[Status] => vEnum
+        case vlit: ValueInt64[Status] => vlit
+        case vlit: ValueDecimal[Status] => vlit
+        case vlit: ValueText[Status] => vlit
+        case vlit: ValueTimestamp[Status] => vlit
+        case vlit: ValueParty[Status] => vlit
+        case vlit: ValueBool[Status] => vlit
+        case vlit: ValueDate[Status] => vlit
+        case vlit: ValueUnit[Status] => vlit
         case ValueOptional(mbV) => ValueOptional(mbV.map(rewrite))
         case ValueMap(map) => ValueMap(map.mapValue(rewrite))
       }

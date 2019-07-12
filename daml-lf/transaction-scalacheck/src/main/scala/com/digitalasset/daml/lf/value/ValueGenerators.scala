@@ -86,7 +86,7 @@ object ValueGenerators {
   }
 
   //generate decimal values
-  val decimalGen: Gen[ValueDecimal] = {
+  val decimalGen: Gen[ValueDecimal[WellTyped]] = {
     val integerPart = Gen.listOfN(28, Gen.choose(1, 9)).map(_.mkString)
     val decimalPart = Gen.listOfN(10, Gen.choose(1, 9)).map(_.mkString)
     val bd = integerPart.flatMap(i => decimalPart.map(d => s"$i.$d")).map(BigDecimal(_))
@@ -153,7 +153,7 @@ object ValueGenerators {
       .map(Time.Timestamp.assertFromLong)
 
   // generate a variant with arbitrary value
-  private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
+  private def variantGen(nesting: Int): Gen[ValueVariant[ContractId, WellTyped]] =
     for {
       id <- idGen
       variantName <- nameGen
@@ -165,9 +165,9 @@ object ValueGenerators {
             else (variantId: Identifier) => Some(variantId))
       value <- Gen.lzy(valueGen(nesting))
     } yield ValueVariant(toOption(id), variantName, value)
-  def variantGen: Gen[ValueVariant[ContractId]] = variantGen(0)
+  def variantGen: Gen[ValueVariant[ContractId, WellTyped]] = variantGen(0)
 
-  private def recordGen(nesting: Int): Gen[ValueRecord[ContractId]] =
+  private def recordGen(nesting: Int): Gen[ValueRecord[ContractId, WellTyped]] =
     for {
       id <- idGen
       toOption <- Gen
@@ -178,26 +178,26 @@ object ValueGenerators {
             else (x: Identifier) => Some(x))
       labelledValues <- Gen.listOf(nameGen.flatMap(label =>
         Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
-    } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
-  def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)
+    } yield ValueRecord[ContractId, WellTyped](toOption(id), ImmArray(labelledValues))
+  def recordGen: Gen[ValueRecord[ContractId, WellTyped]] = recordGen(0)
 
-  private def valueOptionalGen(nesting: Int): Gen[ValueOptional[ContractId]] =
+  private def valueOptionalGen(nesting: Int): Gen[ValueOptional[ContractId, WellTyped]] =
     Gen.option(valueGen(nesting)).map(v => ValueOptional(v))
-  def valueOptionalGen: Gen[ValueOptional[ContractId]] = valueOptionalGen(0)
+  def valueOptionalGen: Gen[ValueOptional[ContractId, WellTyped]] = valueOptionalGen(0)
 
-  private def valueListGen(nesting: Int): Gen[ValueList[ContractId]] =
+  private def valueListGen(nesting: Int): Gen[ValueList[ContractId, WellTyped]] =
     for {
       values <- Gen.listOf(Gen.lzy(valueGen(nesting)))
-    } yield ValueList[ContractId](FrontStack(values))
-  def valueListGen: Gen[ValueList[ContractId]] = valueListGen(0)
+    } yield ValueList[ContractId, WellTyped](FrontStack(values))
+  def valueListGen: Gen[ValueList[ContractId, WellTyped]] = valueListGen(0)
 
   private def valueMapGen(nesting: Int) =
     for {
       list <- Gen.listOf(for {
         k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting))
       } yield k -> v)
-    } yield ValueMap[ContractId](SortedLookupList(Map(list: _*)))
-  def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
+    } yield ValueMap[ContractId, WellTyped](SortedLookupList(Map(list: _*)))
+  def valueMapGen: Gen[ValueMap[ContractId, WellTyped]] = valueMapGen(0)
 
   def coidGen: Gen[ContractId] = {
     val genRel: Gen[ContractId] =
@@ -207,11 +207,11 @@ object ValueGenerators {
     Gen.frequency((1, genRel), (3, genAbs))
   }
 
-  def coidValueGen: Gen[ValueContractId[ContractId]] = {
+  def coidValueGen: Gen[ValueContractId[ContractId, WellTyped]] = {
     coidGen.map(ValueContractId(_))
   }
 
-  private def valueGen(nesting: Int): Gen[Value[ContractId]] = {
+  private def valueGen(nesting: Int): Gen[Value[ContractId, WellTyped]] = {
     Gen.sized(sz => {
       val newNesting = nesting + 1
       val nested = List(
@@ -222,15 +222,15 @@ object ValueGenerators {
         (sz / 2 + 1, Gen.resize(sz / 5, valueMapGen(newNesting))),
       )
       val flat = List(
-        (sz + 1, dateGen.map(ValueDate)),
+        (sz + 1, dateGen.map(ValueDate(_))),
         (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
         (sz + 1, decimalGen),
-        (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
+        (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64(_))),
         (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
-        (sz + 1, timestampGen.map(ValueTimestamp)),
+        (sz + 1, timestampGen.map(ValueTimestamp(_))),
         (sz + 1, coidValueGen),
-        (sz + 1, party.map(ValueParty)),
-        (sz + 1, Gen.oneOf(true, false).map(ValueBool))
+        (sz + 1, party.map(ValueParty(_))),
+        (sz + 1, Gen.oneOf(true, false).map(ValueBool(_)))
       )
       val all =
         if (nesting >= MAXIMUM_NESTING) { List() } else { nested } ++
@@ -254,9 +254,9 @@ object ValueGenerators {
       .map(s => Party.assertFromString(s.mkString))
   }
 
-  def valueGen: Gen[Value[ContractId]] = valueGen(0)
+  def valueGen: Gen[Value[ContractId, WellTyped]] = valueGen(0)
 
-  def versionedValueGen: Gen[VersionedValue[ContractId]] =
+  def versionedValueGen: Gen[VersionedValue[ContractId, WellTyped]] =
     for {
       version <- valueVersionGen
       value <- valueGen

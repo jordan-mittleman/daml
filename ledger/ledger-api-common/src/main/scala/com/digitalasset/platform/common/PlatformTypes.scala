@@ -29,25 +29,26 @@ object PlatformTypes {
   type NodeExercises[Nid, Cid] = N.NodeExercises.WithTxValue[Nid, Cid]
   val NodeExercises: N.NodeExercises.type = N.NodeExercises
 
-  type Event[Nid, Cid] = E.Event[Nid, Cid, T.Transaction.Value[Cid]]
+  type Event[Nid, Cid, +Status] = E.Event[Nid, Cid, V.VersionedValue[Cid, Status]]
 
-  type Events[Nid, Cid] = E.Event.Events[Nid, Cid, T.Transaction.Value[Cid]]
+  type Events[Nid, Cid, +Status] = E.Event.Events[Nid, Cid, V.VersionedValue[Cid, Status]]
   val Events: E.Event.Events.type = E.Event.Events
 
-  type CreateEvent[Cid] = E.CreateEvent[Cid, T.Transaction.Value[Cid]]
+  type CreateEvent[Cid, +Status] = E.CreateEvent[Cid, V.VersionedValue[Cid, Status]]
   val CreateEvent: E.CreateEvent.type = E.CreateEvent
 
-  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid, T.Transaction.Value[Cid]]
+  type ExerciseEvent[Nid, Cid, +Status] = E.ExerciseEvent[Nid, Cid, V.VersionedValue[Cid, Status]]
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
 
   def mapContractIdAndValue[Nid, Cid, Cid2](tx: GenTransaction[Nid, Cid])(
       f: Cid => Cid2): GenTransaction[Nid, Cid2] =
     tx.mapContractIdAndValue(f, _.mapContractId(f))
 
-  def asVersionedValue[Cid](v: V[Cid]): scala.Either[String, V.VersionedValue[Cid]] =
+  def asVersionedValue[Cid](
+      v: V[Cid, V.NotTyped]): scala.Either[String, V.VersionedValue[Cid, V.NotTyped]] =
     ValueVersions.asVersionedValue(v)
 
-  def asVersionedValueOrThrow[Cid](v: V[Cid]): V.VersionedValue[Cid] = {
+  def asVersionedValueOrThrow[Cid](v: V[Cid, V.NotTyped]): V.VersionedValue[Cid, V.NotTyped] = {
     asVersionedValue(v).fold(
       s => throw new IllegalArgumentException(s"Can't convert to versioned value: $s"),
       identity)

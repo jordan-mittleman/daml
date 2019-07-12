@@ -189,8 +189,8 @@ final class Engine {
 
   // A safe cast of a value to a value which uses only absolute contract IDs.
   // In particular, the cast will succeed for all values contained in the root nodes of a Transaction produced by submit
-  private[this] def asValueWithAbsoluteContractIds[Cid](
-      v: VersionedValue[Cid]): Result[VersionedValue[AbsoluteContractId]] =
+  private[this] def asValueWithAbsoluteContractIds[Cid, Status](
+      v: VersionedValue[Cid, Status]): Result[VersionedValue[AbsoluteContractId, Status]] =
     try {
       ResultDone(
         v.mapContractId {

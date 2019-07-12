@@ -14,13 +14,15 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
   "serialize" - {
     val emptyTuple = ValueTuple(ImmArray.empty)
     val emptyTupleError = "contains tuple ValueTuple(ImmArray())"
-    val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
-    }
+    val exceedsNesting =
+      (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing, NotTyped]](ValueInt64(42)) {
+        case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
+      }
     val exceedsNestingError = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
-    val matchesNesting = (1 to MAXIMUM_NESTING).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
-    }
+    val matchesNesting =
+      (1 to MAXIMUM_NESTING).foldRight[Value[Nothing, NotTyped]](ValueInt64(42)) {
+        case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
+      }
 
     "rejects tuple" in {
       emptyTuple.serializable shouldBe ImmArray(emptyTupleError)
@@ -47,7 +49,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
   "Equal" - {
     import com.digitalasset.daml.lf.value.ValueGenerators._
     import org.scalacheck.Arbitrary
-    type T = VersionedValue[Unnatural[ContractId]]
+    type T = VersionedValue[Unnatural[ContractId], NotTyped]
     implicit val arbT: Arbitrary[T] =
       Arbitrary(versionedValueGen map (_ mapContractId (Unnatural(_))))
 

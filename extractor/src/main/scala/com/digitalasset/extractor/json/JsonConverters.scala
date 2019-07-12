@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.data.{
   Decimal => LfDecimal
 }
 import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
+import com.digitalasset.extractor.ledger.types.Identifier
 import com.digitalasset.extractor.ledger.types.LedgerValue._
 import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
 import io.circe._
@@ -40,7 +40,7 @@ object JsonConverters {
   private val emptyRecord = V.ValueRecord(None, ImmArray.empty).asJson
 
   // TODO it might be much more performant if exploded into separate vals
-  implicit def valueEncoder[T <: LedgerValue]: Encoder[T] = {
+  implicit def valueEncoder[T <: OfCid[V]]: Encoder[T] = {
     case r @ V.ValueRecord(_, _) => r.asJson
     case v @ V.ValueVariant(_, _, _) => v.asJson
     case V.ValueEnum(_, constructor) => constructor.asJson
@@ -68,14 +68,14 @@ object JsonConverters {
       ).asJson
   }
 
-  implicit val scalaOptionEncoder: Encoder[Option[LedgerValue]] = _ match {
+  implicit val scalaOptionEncoder: Encoder[Option[OfCid[V]]] = _ match {
     case None =>
       JsonObject("None" -> emptyRecord).asJson
     case Some(value) =>
       JsonObject("Some" -> value.asJson).asJson
   }
 
-  implicit val mapEncoder: Encoder[SortedLookupList[LedgerValue]] = m =>
+  implicit val mapEncoder: Encoder[SortedLookupList[OfCid[V]]] = m =>
     JsonObject(
       "Map" ->
         JsonObject

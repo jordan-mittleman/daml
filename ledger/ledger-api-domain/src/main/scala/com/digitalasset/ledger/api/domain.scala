@@ -6,13 +6,11 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import scalaz.{@@, Tag}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.command.{Commands => LfCommands}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
 
 import scala.collection.{breakOut, immutable}
 
@@ -75,7 +73,7 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: ValueRecord[AbsoluteContractId],
+        createArguments: Lf.ValueRecord[Lf.AbsoluteContractId, Lf.NotTyped],
         witnessParties: immutable.Set[Ref.Party],
         signatories: immutable.Set[Ref.Party],
         observers: immutable.Set[Ref.Party],
@@ -215,7 +213,7 @@ object domain {
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
   }
 
-  type Value = Lf[Lf.AbsoluteContractId]
+  type Value = Lf[Lf.AbsoluteContractId, Lf.NotTyped]
 
   final case class RecordField(label: Option[Label], value: Value)
 

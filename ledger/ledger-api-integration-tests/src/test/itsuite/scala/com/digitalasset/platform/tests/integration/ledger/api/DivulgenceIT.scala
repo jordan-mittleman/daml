@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
+  NotTyped,
   ValueContractId,
   ValueParty,
   ValueRecord
@@ -98,7 +99,7 @@ class DivulgenceIT
       workflowId: String,
       party: String,
       tpl: v1.value.Identifier,
-      arg: ValueRecord[AbsoluteContractId]): Future[ContractIdString] =
+      arg: ValueRecord[AbsoluteContractId, NotTyped]): Future[ContractIdString] =
     for {
       ledgerEndBeforeSubmission <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       client <- ctx.commandClient()
@@ -131,7 +132,7 @@ class DivulgenceIT
       tpl: v1.value.Identifier,
       contractId: String,
       choice: String,
-      arg: Value[AbsoluteContractId]): Future[Unit] =
+      arg: Value[AbsoluteContractId, NotTyped]): Future[Unit] =
     for {
       ledgerEndBeforeSubmission <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       client <- ctx.commandClient()

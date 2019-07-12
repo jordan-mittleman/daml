@@ -203,7 +203,7 @@ object ValueCoder {
     */
   def decodeVersionedValue[Cid](
       decodeCid: DecodeCid[Cid],
-      protoValue0: proto.VersionedValue): Either[DecodeError, VersionedValue[Cid]] =
+      protoValue0: proto.VersionedValue): Either[DecodeError, VersionedValue[Cid, WellTyped]] =
     for {
       version <- decodeVersion(protoValue0.getVersion)
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
@@ -211,7 +211,7 @@ object ValueCoder {
 
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
-      protoValue0: proto.VersionedValue): Either[DecodeError, Value[Cid]] =
+      protoValue0: proto.VersionedValue): Either[DecodeError, Value[Cid, WellTyped]] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
 
   /**
@@ -226,7 +226,7 @@ object ValueCoder {
     */
   def encodeVersionedValue[Cid](
       encodeCid: EncodeCid[Cid],
-      value: Value[Cid]): Either[EncodeError, proto.VersionedValue] =
+      value: Value[Cid, WellTyped]): Either[EncodeError, proto.VersionedValue] =
     ValueVersions
       .assignVersion(value)
       .fold(
@@ -245,7 +245,7 @@ object ValueCoder {
     */
   def encodeVersionedValueWithCustomVersion[Cid](
       encodeCid: EncodeCid[Cid],
-      versionedValue: VersionedValue[Cid]): Either[EncodeError, proto.VersionedValue] =
+      versionedValue: VersionedValue[Cid, WellTyped]): Either[EncodeError, proto.VersionedValue] =
     for {
       value <- encodeValue(encodeCid, versionedValue.version, versionedValue.value)
     } yield {
@@ -266,7 +266,7 @@ object ValueCoder {
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       valueVersion: ValueVersion,
-      protoValue0: proto.Value): Either[DecodeError, Value[Cid]] = {
+      protoValue0: proto.Value): Either[DecodeError, Value[Cid, WellTyped]] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def identifier(s: String): Name =
@@ -277,7 +277,7 @@ object ValueCoder {
           identity
         )
 
-    def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
+    def go(nesting: Int, protoValue: proto.Value): Value[Cid, WellTyped] = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
           s"Provided proto value to decode exceeds maximum nesting level of $MAXIMUM_NESTING")
@@ -288,23 +288,23 @@ object ValueCoder {
           case proto.Value.SumCase.BOOL =>
             ValueBool(protoValue.getBool)
           case proto.Value.SumCase.UNIT =>
-            ValueUnit
+            ValueUnit()
           case proto.Value.SumCase.DECIMAL =>
             val d = Decimal.fromString(protoValue.getDecimal)
-            d.fold(e => throw Err("error decoding decimal: " + e), ValueDecimal)
+            d.fold(e => throw Err("error decoding decimal: " + e), ValueDecimal(_))
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
           case proto.Value.SumCase.TEXT =>
             ValueText(protoValue.getText)
           case proto.Value.SumCase.DATE =>
             val d = Time.Date.fromDaysSinceEpoch(protoValue.getDate)
-            d.fold(e => throw Err("error decoding date: " + e), ValueDate)
+            d.fold(e => throw Err("error decoding date: " + e), ValueDate(_))
           case proto.Value.SumCase.TIMESTAMP =>
             val t = Time.Timestamp.fromLong(protoValue.getTimestamp)
-            t.fold(e => throw Err("error decoding timestamp: " + e), ValueTimestamp)
+            t.fold(e => throw Err("error decoding timestamp: " + e), ValueTimestamp(_))
           case proto.Value.SumCase.PARTY =>
             val party = Party.fromString(protoValue.getParty)
-            party.fold(e => throw Err("error decoding party: " + e), ValueParty)
+            party.fold(e => throw Err("error decoding party: " + e), ValueParty(_))
           case proto.Value.SumCase.CONTRACT_ID | proto.Value.SumCase.CONTRACT_ID_STRUCT =>
             val cid = protoValue.decodeContractIdOrStruct(decodeCid, valueVersion)(
               _.getContractId,
@@ -408,10 +408,10 @@ object ValueCoder {
   def encodeValue[Cid](
       encodeCid: EncodeCid[Cid],
       valueVersion: ValueVersion,
-      v0: Value[Cid]): Either[EncodeError, proto.Value] = {
+      v0: Value[Cid, WellTyped]): Either[EncodeError, proto.Value] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
-    def go(nesting: Int, v: Value[Cid]): proto.Value = {
+    def go(nesting: Int, v: Value[Cid, WellTyped]): proto.Value = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
           s"Provided DAML-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING")
@@ -420,7 +420,7 @@ object ValueCoder {
 
         val builder = proto.Value.newBuilder()
         v match {
-          case ValueUnit =>
+          case ValueUnit() =>
             builder.setUnit(protobuf.Empty.newBuilder()).build()
           case ValueBool(b) =>
             builder.setBool(b).build()
@@ -524,13 +524,13 @@ object ValueCoder {
 
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
-      v: Value[Cid]): Either[EncodeError, Array[Byte]] = {
+      v: Value[Cid, WellTyped]): Either[EncodeError, Array[Byte]] = {
     encodeVersionedValue(encodeCid, v).map(_.toByteArray)
   }
 
   private[value] def valueFromBytes[Cid](
       decodeCid: DecodeCid[Cid],
-      bytes: Array[Byte]): Either[DecodeError, Value[Cid]] = {
+      bytes: Array[Byte]): Either[DecodeError, Value[Cid, WellTyped]] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
 }

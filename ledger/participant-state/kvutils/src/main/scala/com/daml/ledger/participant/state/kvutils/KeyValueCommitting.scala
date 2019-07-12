@@ -555,7 +555,7 @@ object KeyValueCommitting {
       }
       .flatMap { node: Transaction.Node =>
         node match {
-          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+          case create: NodeCreate[ContractId, VersionedValue[ContractId, _]] =>
             // FixMe (RH) toAbsCoid can throw an IllegalArgumentException
             Some(
               create.coinst.mapValue(

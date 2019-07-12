@@ -5,15 +5,16 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
 import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, WellTyped, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
 
 trait ValueSerializer {
-  def serialiseValue(
-      value: VersionedValue[AbsoluteContractId]): Either[ValueCoder.EncodeError, Array[Byte]]
+  def serialiseValue(value: VersionedValue[AbsoluteContractId, WellTyped])
+    : Either[ValueCoder.EncodeError, Array[Byte]]
 
-  def deserialiseValue(blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId]]
+  def deserialiseValue(
+      blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId, WellTyped]]
 }
 
 /**
@@ -21,14 +22,14 @@ trait ValueSerializer {
   */
 object ValueSerializer extends ValueSerializer {
 
-  override def serialiseValue(
-      value: VersionedValue[AbsoluteContractId]): Either[ValueCoder.EncodeError, Array[Byte]] =
+  override def serialiseValue(value: VersionedValue[AbsoluteContractId, WellTyped])
+    : Either[ValueCoder.EncodeError, Array[Byte]] =
     ValueCoder
       .encodeVersionedValueWithCustomVersion(defaultCidEncode, value)
       .map(_.toByteArray())
 
   override def deserialiseValue(
-      blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId]] =
+      blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId, WellTyped]] =
     ValueCoder
       .decodeVersionedValue(
         defaultCidDecode,

@@ -9,7 +9,7 @@ import java.security.MessageDigest
 import com.digitalasset.daml.lf.data.{Decimal, Utf8}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, WellTyped}
 
 trait KeyHasher {
 
@@ -43,7 +43,7 @@ object KeyHasher extends KeyHasher {
     * @param op operation to append a hash token
     * @return the final hash value
     */
-  def foldLeft[T](value: Value[AbsoluteContractId], z: T, op: (T, HashToken) => T): T = {
+  def foldLeft[T](value: Value[AbsoluteContractId, WellTyped], z: T, op: (T, HashToken) => T): T = {
     import com.digitalasset.daml.lf.value.Value._
 
     value match {
@@ -55,7 +55,7 @@ object KeyHasher extends KeyHasher {
       case ValueParty(v) => op(z, HashTokenText(v))
       case ValueBool(v) => op(z, HashTokenByte(if (v) 1.toByte else 0.toByte))
       case ValueDate(v) => op(z, HashTokenInt(v.days))
-      case ValueUnit => op(z, HashTokenByte(0))
+      case ValueUnit() => op(z, HashTokenByte(0))
 
       // Record: [CollectionBegin(), Token(value)*, CollectionEnd()]
       case ValueRecord(_, fs) =>

@@ -43,8 +43,9 @@ package object v1 {
         eventId: EventId,
         contractId: Value.AbsoluteContractId,
         templateId: Ref.Identifier,
-        contractKey: Option[KeyWithMaintainers[Value.VersionedValue[Value.AbsoluteContractId]]],
-        argument: Value.VersionedValue[Value.AbsoluteContractId],
+        contractKey: Option[
+          KeyWithMaintainers[Value.VersionedValue[Value.AbsoluteContractId, Value.NotTyped]]],
+        argument: Value.VersionedValue[Value.AbsoluteContractId, Value.NotTyped],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Party],
     ) extends AcsUpdateEvent

@@ -348,12 +348,12 @@ object Pretty {
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
-  def prettyVersionedValue(verbose: Boolean)(v: Transaction.Value[ContractId]): Doc =
+  def prettyVersionedValue(verbose: Boolean)(v: VersionedValue[ContractId, NotTyped]): Doc =
     prettyValue(verbose)(v.value) & text("value-version: ") + text(v.version.protoValue)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.
-  def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
+  def prettyValue(verbose: Boolean)(v: Value[ContractId, NotTyped]): Doc =
     v match {
       case ValueInt64(i) => str(i)
       case ValueDecimal(d) => str(d)
@@ -385,7 +385,7 @@ object Pretty {
               text("")
         }) +
           (value match {
-            case ValueUnit => text(variant)
+            case ValueUnit() => text(variant)
             case _ =>
               text(variant) + char('(') + prettyValue(true)(value) + char(')')
           })
@@ -403,7 +403,7 @@ object Pretty {
       case ValueContractId(AbsoluteContractId(acoid)) => char('#') + text(acoid)
       case ValueContractId(RelativeContractId(rcoid)) =>
         char('~') + text(rcoid.toString)
-      case ValueUnit => text("<unit>")
+      case ValueUnit() => text("<unit>")
       case ValueBool(b) => str(b)
       case ValueList(lst) =>
         char('[') + intercalate(text(", "), lst.map(prettyValue(true)(_)).toImmArray.toSeq) + char(

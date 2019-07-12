@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
+import com.digitalasset.daml.lf.value.Value.WellTyped
 import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
@@ -27,7 +28,7 @@ sealed trait SValue {
 
   import SValue._
 
-  def toValue: V[V.ContractId] =
+  def toValue: V[V.ContractId, WellTyped] =
     this match {
       case SInt64(x) => V.ValueInt64(x)
       case SDecimal(x) => V.ValueDecimal(x)
@@ -35,7 +36,7 @@ sealed trait SValue {
       case STimestamp(x) => V.ValueTimestamp(x)
       case SParty(x) => V.ValueParty(x)
       case SBool(x) => V.ValueBool(x)
-      case SUnit(_) => V.ValueUnit
+      case SUnit(_) => V.ValueUnit()
       case SDate(x) => V.ValueDate(x)
       case STuple(fields, svalues) =>
         V.ValueTuple(
@@ -197,7 +198,7 @@ object SValue {
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
 
-  def fromValue(value0: V[V.ContractId]): SValue = {
+  private[lf] def fromValue(value0: V[V.ContractId, WellTyped]): SValue = {
     value0 match {
       case V.ValueList(vs) =>
         SList(vs.map[SValue](fromValue))
@@ -209,7 +210,7 @@ object SValue {
       case V.ValueParty(p) => SParty(p)
       case V.ValueBool(b) => SBool(b)
       case V.ValueDate(x) => SDate(x)
-      case V.ValueUnit => SUnit(())
+      case V.ValueUnit() => SUnit(())
 
       case V.ValueRecord(Some(id), fs) =>
         val fields = Name.Array.ofDim(fs.length)

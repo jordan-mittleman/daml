@@ -5,19 +5,21 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, WellTyped, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.ledger.EventId
 
 trait TransactionSerializer {
 
   def serialiseTransaction(
-      transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
-    : Either[EncodeError, Array[Byte]]
+      transaction: GenTransaction[
+        EventId,
+        AbsoluteContractId,
+        VersionedValue[AbsoluteContractId, WellTyped]]): Either[EncodeError, Array[Byte]]
 
   def deserializeTransaction(blob: Array[Byte]): Either[
     DecodeError,
-    GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]]
+    GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId, WellTyped]]]
 
 }
 
@@ -33,8 +35,10 @@ object TransactionSerializer extends TransactionSerializer {
       )
 
   override def serialiseTransaction(
-      transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
-    : Either[EncodeError, Array[Byte]] =
+      transaction: GenTransaction[
+        EventId,
+        AbsoluteContractId,
+        VersionedValue[AbsoluteContractId, WellTyped]]): Either[EncodeError, Array[Byte]] =
     TransactionCoder
       .encodeTransactionWithCustomVersion(
         defaultNidEncode,
@@ -48,7 +52,7 @@ object TransactionSerializer extends TransactionSerializer {
 
   override def deserializeTransaction(blob: Array[Byte]): Either[
     DecodeError,
-    GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]] =
+    GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId, WellTyped]]] =
     TransactionCoder
       .decodeVersionedTransaction(
         defaultDecodeNid,

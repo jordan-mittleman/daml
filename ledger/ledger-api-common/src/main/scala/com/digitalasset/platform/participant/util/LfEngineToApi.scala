@@ -40,7 +40,7 @@ import scala.collection.generic.CanBuildFrom
 
 object LfEngineToApi {
 
-  private[this] type LfValue[+Cid] = Lf[Cid]
+  private[this] type LfValue[+Cid] = Lf[Cid, Lf.NotTyped]
 
   def toApiIdentifier(identifier: Identifier) = {
     ApiIdentifier(
@@ -57,7 +57,8 @@ object LfEngineToApi {
 
   def lfVersionedValueToApiRecord(
       verbose: Boolean,
-      recordValue: Lf.VersionedValue[Lf.AbsoluteContractId]): Either[String, ApiRecord] =
+      recordValue: Lf.VersionedValue[Lf.AbsoluteContractId, Lf.NotTyped])
+    : Either[String, ApiRecord] =
     lfValueToApiRecord(verbose, recordValue.value)
 
   def lfValueToApiRecord(
@@ -87,14 +88,14 @@ object LfEngineToApi {
 
   def lfVersionedValueToApiValue(
       verbose: Boolean,
-      value: Lf.VersionedValue[Lf.AbsoluteContractId]): Either[String, ApiValue] =
+      value: Lf.VersionedValue[Lf.AbsoluteContractId, Lf.NotTyped]): Either[String, ApiValue] =
     lfValueToApiValue(verbose, value.value)
 
   def lfValueToApiValue(
       verbose: Boolean,
       value0: LfValue[Lf.AbsoluteContractId]): Either[String, ApiValue] =
     value0 match {
-      case Lf.ValueUnit => Right(ApiValue(ApiValue.Sum.Unit(Empty())))
+      case Lf.ValueUnit() => Right(ApiValue(ApiValue.Sum.Unit(Empty())))
       case Lf.ValueDecimal(d) =>
         Right(ApiValue(ApiValue.Sum.Decimal(Decimal.toString(d))))
       case Lf.ValueContractId(c) => Right(ApiValue(ApiValue.Sum.ContractId(c.coid)))
@@ -218,7 +219,8 @@ object LfEngineToApi {
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: KeyWithMaintainers[Lf.VersionedValue[Lf.AbsoluteContractId]]): Either[String, ApiValue] =
+      lf: KeyWithMaintainers[Lf.VersionedValue[Lf.AbsoluteContractId, Lf.NotTyped]])
+    : Either[String, ApiValue] =
     lfVersionedValueToApiValue(verbose, lf.key)
 
   @throws[RuntimeException]

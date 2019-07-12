@@ -41,7 +41,8 @@ sealed trait Result[+A] extends Product with Serializable {
 
   // quick and dirty way to consume a Result
   def consume(
-      pcs: AbsoluteContractId => Option[ContractInst[VersionedValue[AbsoluteContractId]]],
+      pcs: AbsoluteContractId => Option[
+        ContractInst[VersionedValue[AbsoluteContractId, WellTyped]]],
       packages: PackageId => Option[Package],
       keys: GlobalKey => Option[AbsoluteContractId]): Either[Error, A] = {
     @tailrec
@@ -70,7 +71,7 @@ final case class ResultError(err: Error) extends Result[Nothing]
   */
 final case class ResultNeedContract[A](
     acoid: AbsoluteContractId,
-    resume: Option[ContractInst[VersionedValue[AbsoluteContractId]]] => Result[A])
+    resume: Option[ContractInst[VersionedValue[AbsoluteContractId, WellTyped]]] => Result[A])
     extends Result[A]
 
 /**
@@ -148,7 +149,7 @@ object Result {
 
   def needContract[A](
       acoid: AbsoluteContractId,
-      resume: ContractInst[VersionedValue[AbsoluteContractId]] => Result[A]) =
+      resume: ContractInst[VersionedValue[AbsoluteContractId, WellTyped]] => Result[A]) =
     ResultNeedContract(acoid, {
       case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
       case Some(contract) => resume(contract)

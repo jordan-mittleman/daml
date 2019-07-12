@@ -25,13 +25,13 @@ object ValueVersions
   private[this] val minMap = ValueVersion("4")
   private[this] val minEnum = ValueVersion("5")
 
-  def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
+  def assignVersion[Cid, Status](v0: Value[Cid, Status]): Either[String, ValueVersion] = {
     import com.digitalasset.daml.lf.transaction.VersionTimeline.{maxVersion => maxVV}
 
     @tailrec
     def go(
         currentVersion: ValueVersion,
-        values0: FrontStack[Value[Cid]]): Either[String, ValueVersion] = {
+        values0: FrontStack[Value[Cid, Status]]): Either[String, ValueVersion] = {
       if (currentVersion == maxVersion) {
         Right(currentVersion)
       } else {
@@ -44,7 +44,7 @@ object ValueVersions
               case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
               case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
               case ValueContractId(_) | ValueInt64(_) | ValueDecimal(_) | ValueText(_) |
-                  ValueTimestamp(_) | ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit =>
+                  ValueTimestamp(_) | ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit() =>
                 go(currentVersion, values)
               // for things added after version 1, we raise the minimum if present
               case ValueOptional(x) =>
@@ -65,17 +65,19 @@ object ValueVersions
   }
 
   @throws[IllegalArgumentException]
-  def assertAssignVersion[Cid](v0: Value[Cid]): ValueVersion =
+  def assertAssignVersion[Cid](v0: Value[Cid, NotTyped]): ValueVersion =
     assignVersion(v0) match {
       case Left(err) => throw new IllegalArgumentException(err)
       case Right(x) => x
     }
-
-  def asVersionedValue[Cid](value: Value[Cid]): Either[String, VersionedValue[Cid]] =
-    assignVersion(value).map(version => VersionedValue(version = version, value = value))
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def asVersionedValue[Cid, Status](
+      value: Value[Cid, Status]): Either[String, VersionedValue[Cid, Status]] =
+    assignVersion(value).map(version =>
+      VersionedValue[Cid, Status](version = version, value = value))
 
   @throws[IllegalArgumentException]
-  def assertAsVersionedValue[Cid](value: Value[Cid]): VersionedValue[Cid] =
+  def assertAsVersionedValue[Cid, Status](value: Value[Cid, Status]): VersionedValue[Cid, Status] =
     asVersionedValue(value) match {
       case Left(err) => throw new IllegalArgumentException(err)
       case Right(x) => x

@@ -92,8 +92,8 @@ case class GenTransaction[Nid, Cid, +Val](
   }
 
   def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid]): WithTxValue[Nid, Cid2] = {
-    def g(v: Val): VersionedValue[Cid2] = v.mapContractId(f)
+      implicit ev: Val <:< VersionedValue[Cid, WellTyped]): WithTxValue[Nid, Cid2] = {
+    def g(v: Val): VersionedValue[Cid2, WellTyped] = v.mapContractId(f)
     this.mapContractIdAndValue(f, g)
   }
 
@@ -382,7 +382,7 @@ object Transaction {
 
   type TContractId = Value.ContractId
 
-  type Value[+Cid] = Value.VersionedValue[Cid]
+  type Value[+Cid] = Value.VersionedValue[Cid, Value.WellTyped]
 
   /** Transaction nodes */
   type Node = GenNode.WithTxValue[NodeId, TContractId]
@@ -675,7 +675,7 @@ object Transaction {
     def insertLookup(
         templateId: TypeConName,
         optLocation: Option[Location],
-        key: KeyWithMaintainers[Value.VersionedValue[Nothing]],
+        key: KeyWithMaintainers[Value.VersionedValue[Nothing, WellTyped]],
         result: Option[TContractId]): PartialTransaction =
       insertFreshNode(_ => NodeLookupByKey(templateId, optLocation, key, result), None)._2
 

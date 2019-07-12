@@ -17,11 +17,11 @@ import Scalaz._
 
 object Queries {
 
-  implicit val timeStampWrite: Write[V.ValueTimestamp] =
-    Write[Instant].contramap[V.ValueTimestamp](_.value.toInstant)
+  implicit val timeStampWrite: Write[V.ValueTimestamp[V.NotTyped]] =
+    Write[Instant].contramap[V.ValueTimestamp[V.NotTyped]](_.value.toInstant)
 
   def createSchema(schema: String): Fragment =
-    Fragment.const(s"CREATE SCHEMA IF NOT EXISTS ${schema}")
+    Fragment.const(s"CREATE SCHEMA IF NOT EXISTS $schema")
 
   def setSchemaComment(schema: String, comment: String): Fragment =
     setComment("SCHEMA", schema, comment)
@@ -34,7 +34,7 @@ object Queries {
     * thus parameters can't be escaped. We have to make sure to use sensible comments (no 's, etc.).
     */
   private def setComment(obj: String, name: String, comment: String): Fragment =
-    Fragment.const(s"COMMENT ON ${obj} ${name} IS '${comment}'")
+    Fragment.const(s"COMMENT ON $obj $name IS '$comment'")
 
   val dropTransactionsTable: Fragment = dropTableIfExists("transaction")
 
@@ -308,7 +308,7 @@ object Queries {
         case V.ValueText(value) => Fragment("?", value)
         case ts @ V.ValueTimestamp(_) => Fragment("?", ts)
         case V.ValueParty(value) => Fragment("?", value: String)
-        case V.ValueUnit => Fragment.const("FALSE")
+        case V.ValueUnit() => Fragment.const("FALSE")
         case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
         case V.ValueMap(m) =>
           Fragment(

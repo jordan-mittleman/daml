@@ -4,7 +4,12 @@
 package com.digitalasset.daml.lf.transaction
 import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractInst,
+  WellTyped,
+  VersionedValue
+}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -255,7 +260,7 @@ object Node {
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
     * a key.
     */
-  case class GlobalKey(templateId: Identifier, key: VersionedValue[AbsoluteContractId])
+  case class GlobalKey(templateId: Identifier, key: VersionedValue[AbsoluteContractId, WellTyped])
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]

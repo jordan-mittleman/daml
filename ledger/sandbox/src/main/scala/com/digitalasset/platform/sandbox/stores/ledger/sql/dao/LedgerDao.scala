@@ -14,7 +14,12 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractInst,
+  WellTyped,
+  VersionedValue
+}
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
@@ -34,8 +39,8 @@ final case class Contract(
     workflowId: Option[WorkflowId],
     witnesses: Set[Party],
     divulgences: Map[Party, TransactionId],
-    coinst: ContractInst[VersionedValue[AbsoluteContractId]],
-    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
+    coinst: ContractInst[VersionedValue[AbsoluteContractId, WellTyped]],
+    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId, WellTyped]]]) {
   def toActiveContract: ActiveContract =
     ActiveContract(let, transactionId, workflowId, coinst, witnesses, divulgences, key)
 }

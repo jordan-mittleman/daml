@@ -175,15 +175,15 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
         .map(invalidArgument)
         .map(coid => Lf.ValueContractId(Lf.AbsoluteContractId(coid)))
     case Sum.Decimal(value) =>
-      Decimal.fromString(value).left.map(invalidArgument).map(Lf.ValueDecimal)
+      Decimal.fromString(value).left.map(invalidArgument).map(Lf.ValueDecimal(_))
 
     case Sum.Party(party) =>
-      Ref.Party.fromString(party).left.map(invalidArgument).map(Lf.ValueParty)
+      Ref.Party.fromString(party).left.map(invalidArgument).map(Lf.ValueParty(_))
     case Sum.Bool(b) => Right(Lf.ValueBool(b))
     case Sum.Timestamp(micros) =>
-      Time.Timestamp.fromLong(micros).left.map(invalidArgument).map(Lf.ValueTimestamp)
+      Time.Timestamp.fromLong(micros).left.map(invalidArgument).map(Lf.ValueTimestamp(_))
     case Sum.Date(days) =>
-      Time.Date.fromDaysSinceEpoch(days).left.map(invalidArgument).map(Lf.ValueDate)
+      Time.Date.fromDaysSinceEpoch(days).left.map(invalidArgument).map(Lf.ValueDate(_))
     case Sum.Text(text) => Right(Lf.ValueText(text))
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>
@@ -212,7 +212,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
               validatedValue <- validateValue(v)
             } yield values :+ validatedValue)
         .map(elements => Lf.ValueList(FrontStack(elements.toImmArray)))
-    case _: Sum.Unit => Right(ValueUnit)
+    case _: Sum.Unit => Right(ValueUnit())
     case Sum.Optional(o) =>
       o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueOptional(None)))(
         validateValue(_).map(v => Lf.ValueOptional(Some(v))))

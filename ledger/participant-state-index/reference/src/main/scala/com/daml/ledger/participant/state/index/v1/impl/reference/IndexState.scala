@@ -138,18 +138,18 @@ final case class IndexState(
         case e: NodeExercises[
               NodeId,
               Value.AbsoluteContractId,
-              Value.VersionedValue[Value.AbsoluteContractId]] if e.consuming =>
+              Value.VersionedValue[Value.AbsoluteContractId, Value.WellTyped]] if e.consuming =>
           e.targetCoid
       }
 
   private def createdContracts(tx: CommittedTransaction): Iterable[(
       Value.AbsoluteContractId,
-      Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]])] =
+      Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId, Value.WellTyped]])] =
     tx.nodes.values
       .collect {
         case c: NodeCreate[
               Value.AbsoluteContractId,
-              Value.VersionedValue[Value.AbsoluteContractId]] =>
+              Value.VersionedValue[Value.AbsoluteContractId, Value.WellTyped]] =>
           (c.coid, c.coinst)
       }
 }

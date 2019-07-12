@@ -6,7 +6,7 @@ package com.daml.ledger.api.server.damlonx.services.backport
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, WellTyped, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.data.{Ref => LfRef}
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
@@ -35,14 +35,14 @@ trait TransactionConversion {
   private def convert(ps: Set[LfRef.Party]): Seq[String] = ps.toSeq
 
   def eventsToTransaction(
-      allEvents: P.Events[EventId, AbsoluteContractId],
+      allEvents: P.Events[EventId, AbsoluteContractId, WellTyped],
       verbose: Boolean): TransactionTreeNodes = {
     val events = allEvents.events.map {
       case (nodeId, value) =>
         (nodeId, value match {
-          case e: P.ExerciseEvent[EventId, AbsoluteContractId] =>
+          case e: P.ExerciseEvent[EventId, AbsoluteContractId, WellTyped] =>
             TreeEvent(TreeEvent.Kind.Exercised(lfExerciseToApi(nodeId, e, verbose)))
-          case c: P.CreateEvent[AbsoluteContractId] =>
+          case c: P.CreateEvent[AbsoluteContractId, WellTyped] =>
             TreeEvent(TreeEvent.Kind.Created(lfCreateToApi(nodeId, c, true, verbose)))
         })
     }
@@ -86,7 +86,7 @@ trait TransactionConversion {
 
   def lfCreateToApi(
       eventId: EventId,
-      create: P.CreateEvent[Lf.AbsoluteContractId],
+      create: P.CreateEvent[Lf.AbsoluteContractId, Lf.WellTyped],
       includeParentWitnesses: Boolean,
       verbose: Boolean): CreatedEvent = {
     CreatedEvent(
@@ -112,7 +112,7 @@ trait TransactionConversion {
 
   def lfExerciseToApi(
       eventId: EventId,
-      exercise: P.ExerciseEvent[EventId, Lf.AbsoluteContractId],
+      exercise: P.ExerciseEvent[EventId, Lf.AbsoluteContractId, WellTyped],
       verbose: Boolean): ExercisedEvent = {
     ExercisedEvent(
       eventId,
@@ -164,15 +164,15 @@ trait TransactionConversion {
   private def flattenEvents(
       events: Map[
         LfRef.LedgerString,
-        engine.Event[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]],
+        engine.Event[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId, WellTyped]]],
       root: LfRef.LedgerString,
       verbose: Boolean): List[Event] = {
     val event = events(root)
     event match {
-      case create: P.CreateEvent[Lf.AbsoluteContractId @unchecked] =>
+      case create: P.CreateEvent[Lf.AbsoluteContractId @unchecked, Lf.WellTyped] =>
         List(Event(Created(lfCreateToApi(root, create, false, verbose))))
 
-      case exercise: P.ExerciseEvent[EventId, Lf.AbsoluteContractId] =>
+      case exercise: P.ExerciseEvent[EventId, Lf.AbsoluteContractId, Lf.WellTyped] =>
         val children: List[Event] =
           exercise.children.toSeq
             .sortBy(getEventIndex)

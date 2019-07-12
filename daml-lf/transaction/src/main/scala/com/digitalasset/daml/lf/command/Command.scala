@@ -19,7 +19,9 @@ sealed trait Command extends Product with Serializable {
   *  @param templateId identifier of the template that the contract is instantiating
   *  @param argument value passed to the template
   */
-final case class CreateCommand(templateId: Identifier, argument: VersionedValue[AbsoluteContractId])
+final case class CreateCommand(
+    templateId: Identifier,
+    argument: VersionedValue[AbsoluteContractId, NotTyped])
     extends Command
 
 /** Command for exercising a choice on an existing contract
@@ -33,7 +35,7 @@ final case class ExerciseCommand(
     templateId: Identifier,
     contractId: ContractIdString,
     choiceId: ChoiceName,
-    argument: VersionedValue[AbsoluteContractId])
+    argument: VersionedValue[AbsoluteContractId, NotTyped])
     extends Command
 
 /** Command for exercising a choice on an existing contract specified by its key
@@ -45,9 +47,9 @@ final case class ExerciseCommand(
   */
 final case class ExerciseByKeyCommand(
     templateId: Identifier,
-    contractKey: VersionedValue[AbsoluteContractId],
+    contractKey: VersionedValue[AbsoluteContractId, NotTyped],
     choiceId: ChoiceName,
-    argument: VersionedValue[AbsoluteContractId])
+    argument: VersionedValue[AbsoluteContractId, NotTyped])
     extends Command
 
 /** Command for creating a contract and exercising a choice
@@ -60,9 +62,9 @@ final case class ExerciseByKeyCommand(
   */
 final case class CreateAndExerciseCommand(
     templateId: Identifier,
-    createArgument: VersionedValue[AbsoluteContractId],
+    createArgument: VersionedValue[AbsoluteContractId, NotTyped],
     choiceId: ChoiceName,
-    choiceArgument: VersionedValue[AbsoluteContractId])
+    choiceArgument: VersionedValue[AbsoluteContractId, NotTyped])
     extends Command
 
 /** Commands input adapted from ledger-api

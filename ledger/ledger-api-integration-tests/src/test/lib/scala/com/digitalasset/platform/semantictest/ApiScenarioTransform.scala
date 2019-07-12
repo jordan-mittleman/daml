@@ -4,10 +4,10 @@
 package com.digitalasset.platform.semantictest
 
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, ContractIdString, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{Value, ValueVersions}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.event.{
@@ -38,19 +38,19 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
 
   private def toLfVersionedValue[Cid](
       record: Record
-  ): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] =
+  ): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId, NotTyped]] =
     recordToLfValue(record).flatMap(determineVersion)
 
-  private def toLfVersionedValue[Cid](
-      value: ApiValue): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] = {
+  private def toLfVersionedValue[Cid](value: ApiValue)
+    : Either[StatusRuntimeException, VersionedValue[AbsoluteContractId, NotTyped]] = {
     toLfValue(value).flatMap(determineVersion)
   }
 
-  private def determineVersion(value: Value[AbsoluteContractId])
-    : Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] =
+  private def determineVersion[Status](value: Value[AbsoluteContractId, Status])
+    : Either[StatusRuntimeException, VersionedValue[AbsoluteContractId, Status]] =
     ValueVersions
       .asVersionedValue(value)
-      .fold[Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]]](
+      .fold[Either[StatusRuntimeException, VersionedValue[AbsoluteContractId, Status]]](
         s => Left(invalidArgument(s"Cannot parse '$value' as versioned value: $s")),
         Right.apply)
 
@@ -64,33 +64,15 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
     toLfValue(ApiValue(ApiValue.Sum.Record(record)))
 
   private def toLfValue[Cid](
-      apiV: ApiValue): Either[StatusRuntimeException, Value[AbsoluteContractId]] =
+      apiV: ApiValue): Either[StatusRuntimeException, Value[AbsoluteContractId, NotTyped]] =
     commandsValidator.validateValue(apiV)
 
   // this is roughly the inverse operation of EventConverter in sandbox
   def eventsFromApiTransaction(transactionTree: TransactionTree)
-    : Either[RuntimeException, P.Events[String, AbsoluteContractId]] = {
-    case class ExerciseWaiting(
-        index: Int,
-        requiredChildrenNum: Int,
-        childIndices: BackStack[String],
-        currentLength: Int,
-        e: P.ExerciseEvent[String, AbsoluteContractId]) {
-      def update(childIndex: String): ExerciseWaiting = copy(
-        childIndices = this.childIndices :+ childIndex,
-        currentLength = this.currentLength + 1
-      )
-
-      def getEvent: P.ExerciseEvent[String, AbsoluteContractId] =
-        if (currentLength == requiredChildrenNum) {
-          e.copy(children = childIndices.toImmArray)
-        } else {
-          sys.error("getEvent called in invalid state on incomplete exercise")
-        }
-    }
+    : Either[RuntimeException, P.Events[String, AbsoluteContractId, WellTyped]] = {
 
     def toLfCreated(p: Ast.Package, createdEvent: ApiCreatedEvent)
-      : Either[StatusRuntimeException, P.CreateEvent[AbsoluteContractId]] = {
+      : Either[StatusRuntimeException, P.CreateEvent[AbsoluteContractId, WellTyped]] = {
       val witnesses = P.parties(createdEvent.witnessParties)
       val signatories = P.parties(createdEvent.signatories)
       val observers = P.parties(createdEvent.observers)
@@ -107,9 +89,11 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
               P.dn(createdEvent.getTemplateId.entityName))
           ),
           // conversion is imperfect as maintainers are not determinable from events yet
-          createdEvent.contractKey.map(key =>
-            toLfVersionedValue(key).fold(throw _, KeyWithMaintainers(_, Set.empty))),
-          value,
+          createdEvent.contractKey.map(
+            key =>
+              toLfVersionedValue(key)
+                .fold(throw _, k => KeyWithMaintainers(Value.markAsWellTyped(k), Set.empty))),
+          markAsWellTyped(value),
           createdEvent.agreementText.getOrElse(""),
           signatories,
           observers,
@@ -121,7 +105,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
         p: Ast.Package,
         exercisedEvent: ApiExercisedEvent,
         convertEvId: String => EventId)
-      : Either[StatusRuntimeException, P.ExerciseEvent[EventId, AbsoluteContractId]] = {
+      : Either[StatusRuntimeException, P.ExerciseEvent[EventId, AbsoluteContractId, WellTyped]] = {
       val witnesses = P.parties(exercisedEvent.witnessParties)
       for {
         coid <- toContractId(exercisedEvent.contractId)
@@ -138,19 +122,20 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
             )
           ),
           ChoiceName.assertFromString(exercisedEvent.choice),
-          value,
+          markAsWellTyped(value),
           P.parties(exercisedEvent.actingParties),
           exercisedEvent.consuming,
           ImmArray(exercisedEvent.childEventIds.map(convertEvId)),
           // conversion is imperfect as stakeholders are not determinable from events yet
           witnesses,
           witnesses,
-          Some(result)
+          Some(markAsWellTyped(result))
         )
       }
     }
 
-    val converted: Either[RuntimeException, Map[String, P.Event[String, AbsoluteContractId]]] =
+    val converted
+      : Either[RuntimeException, Map[String, P.Event[String, AbsoluteContractId, WellTyped]]] =
       Traverse[List]
         .traverseU(transactionTree.eventsById.toList)({
           case (k, treeEvent) =>

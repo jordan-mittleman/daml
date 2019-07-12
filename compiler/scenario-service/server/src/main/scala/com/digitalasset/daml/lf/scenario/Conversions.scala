@@ -3,8 +3,6 @@
 
 package com.digitalasset.daml.lf.scenario
 
-import scala.collection.JavaConverters._
-
 import com.digitalasset.daml.lf.data.{Decimal, Ref}
 import com.digitalasset.daml.lf.scenario.api.v1
 import com.digitalasset.daml.lf.scenario.api.v1.{List => _, _}
@@ -13,7 +11,10 @@ import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, Node => N}
 import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.value.Value.NotTyped
 import com.digitalasset.daml.lf.value.{Value => V}
+
+import scala.collection.JavaConverters._
 
 case class Conversions(homePackageId: Ref.PackageId) {
   def convertScenarioResult(
@@ -458,7 +459,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertKeyWithMaintainers(
-      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]]): KeyWithMaintainers = {
+      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId, NotTyped]]): KeyWithMaintainers = {
     KeyWithMaintainers
       .newBuilder()
       .setKey(convertValue(key.key.value))
@@ -563,7 +564,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   val empty: Empty = Empty.newBuilder.build
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def convertValue[Cid](value: V[Cid]): Value = {
+  def convertValue[Cid](value: V[Cid, NotTyped]): Value = {
     val builder = Value.newBuilder
     value match {
       case V.ValueRecord(tycon, fields) =>
@@ -634,7 +635,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case V.ValueDate(d) => builder.setDate(d.days)
       case V.ValueParty(p) => builder.setParty(p)
       case V.ValueBool(b) => builder.setBool(b)
-      case V.ValueUnit => builder.setUnit(empty)
+      case V.ValueUnit() => builder.setUnit(empty)
       case V.ValueOptional(mbV) =>
         val optionalBuilder = Optional.newBuilder
         mbV match {

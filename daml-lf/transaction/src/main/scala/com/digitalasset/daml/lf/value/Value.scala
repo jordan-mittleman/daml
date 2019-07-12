@@ -20,10 +20,12 @@ import scalaz.std.tuple._
 import scalaz.syntax.equal._
 
 /** Values   */
-sealed abstract class Value[+Cid] extends Product with Serializable {
+sealed abstract class Value[+Cid, +Status] extends Product with Serializable {
   import Value._
+
   // TODO (FM) make this tail recursive
-  def mapContractId[Cid2](f: Cid => Cid2): Value[Cid2] =
+  def mapContractId[Cid2](f: Cid => Cid2): Value[Cid2, Status] = {
+
     // TODO (FM) make this tail recursive
     this match {
       case ValueContractId(coid) => ValueContractId(f(coid))
@@ -32,7 +34,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
           case (lbl, value) => (lbl, value.mapContractId(f))
         }))
       case ValueTuple(fs) =>
-        ValueTuple(fs.map[(Name, Value[Cid2])] {
+        ValueTuple(fs.map[(Name, Value[Cid2, Status])] {
           case (lbl, value) => (lbl, value.mapContractId(f))
         })
       case ValueVariant(id, variant, value) =>
@@ -47,10 +49,11 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
       case p @ ValueParty(_) => p
       case b @ ValueBool(_) => b
       case x @ ValueDate(_) => x
-      case ValueUnit => ValueUnit
+      case x @ ValueUnit() => x
       case ValueOptional(x) => ValueOptional(x.map(_.mapContractId(f)))
       case ValueMap(x) => ValueMap(x.mapValue(_.mapContractId(f)))
     }
+  }
 
   /** returns a list of validation errors: if the result is non-empty the value is
     * _not_ serializable.
@@ -63,7 +66,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
     def go(
         exceededNesting: Boolean,
         errs: BackStack[String],
-        vs0: FrontStack[(Value[Cid], Int)]): BackStack[String] = vs0 match {
+        vs0: FrontStack[(Value[Cid, Status], Int)]): BackStack[String] = vs0 match {
       case FrontStack() => errs
 
       case FrontStackCons((v, nesting), vs) =>
@@ -71,7 +74,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
         val exceedsNestingErr = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
 
         v match {
-          case tpl: ValueTuple[Cid] =>
+          case tpl: ValueTuple[Cid, Status] =>
             go(exceededNesting, errs :+ s"contains tuple $tpl", vs)
           case ValueRecord(_, flds) =>
             if (nesting + 1 > MAXIMUM_NESTING) {
@@ -109,9 +112,9 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
               go(exceededNesting, errs, (value, nesting + 1) +: vs)
             }
 
-          case _: ValueEnum | _: ValueContractId[Cid] | _: ValueInt64 | _: ValueDecimal |
-              _: ValueText | _: ValueTimestamp | _: ValueParty | _: ValueBool | _: ValueDate |
-              ValueUnit =>
+          case _: ValueEnum[_] | _: ValueContractId[Cid, _] | _: ValueInt64[_] |
+              _: ValueDecimal[_] | _: ValueText[_] | _: ValueTimestamp[_] | _: ValueParty[_] |
+              _: ValueBool[_] | _: ValueDate[_] | _: ValueUnit[_] =>
             go(exceededNesting, errs, vs)
           case ValueOptional(x) =>
             if (nesting + 1 > MAXIMUM_NESTING) {
@@ -139,10 +142,14 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
     }
 
     go(false, BackStack.empty, FrontStack((this, 0))).toImmArray
-  }
+  } cd
 }
 
 object Value {
+
+  trait NotTsrcjar
+  yped
+  trait WellTyped extends NotTyped
 
   /** the maximum nesting level for DAML-LF serializable values. we put this
     * limitation to be able to reliably implement stack safe programs with it.
@@ -154,12 +161,12 @@ object Value {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid]) {
-    def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
+  final case class VersionedValue[+Cid, +Status](version: ValueVersion, value: Value[Cid, Status]) {
+    def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2, Status] =
       this.copy(value = value.mapContractId(f))
 
     /** Increase the `version` if appropriate for `languageVersions`. */
-    def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
+    def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid, Status] = {
       import com.digitalasset.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
       copy(version =
         latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
@@ -167,61 +174,76 @@ object Value {
   }
 
   object VersionedValue {
-    implicit def `VersionedValue Equal instance`[Cid: Equal]: Equal[VersionedValue[Cid]] =
+    implicit def `VersionedValue Equal instance`[Cid: Equal, Status]
+      : Equal[VersionedValue[Cid, Status]] =
       ScalazEqual.withNatural(Equal[Cid].equalIsNatural) { (a, b) =>
-        import a._
-        val VersionedValue(bVersion, bValue) = b
-        version == bVersion && value === bValue
+        a.version == b.version && a.value === b.value
       }
   }
 
-  final case class ValueRecord[+Cid](
+  final case class ValueRecord[+Cid, +Status] private (
       tycon: Option[Identifier],
-      fields: ImmArray[(Option[Name], Value[Cid])])
-      extends Value[Cid]
-  final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
-      extends Value[Cid]
-  final case class ValueEnum(tycon: Option[Identifier], value: Name) extends Value[Nothing]
-
-  final case class ValueContractId[+Cid](value: Cid) extends Value[Cid]
+      fields: ImmArray[(Option[Name], Value[Cid, Status])])
+      extends Value[Cid, Status]
+  final case class ValueVariant[+Cid, +Status] private (
+      tycon: Option[Identifier],
+      variant: Name,
+      value: Value[Cid, Status])
+      extends Value[Cid, Status]
+  final case class ValueEnum[+Status] private (tycon: Option[Identifier], value: Name)
+      extends Value[Nothing, Status]
+  final case class ValueContractId[+Cid, +Status] private (value: Cid) extends Value[Cid, Status]
 
   /**
     * DAML-LF lists are basically linked lists. However we use FrontQueue since we store list-literals in the DAML-LF
     * packages and FrontQueue lets prepend chunks rather than only one element.
     */
-  final case class ValueList[+Cid](values: FrontStack[Value[Cid]]) extends Value[Cid]
-  final case class ValueInt64(value: Long) extends Value[Nothing]
-  final case class ValueDecimal(value: Decimal) extends Value[Nothing]
+  final case class ValueList[+Cid, +Status](values: FrontStack[Value[Cid, Status]])
+      extends Value[Cid, Status]
+  final case class ValueInt64[+Status](value: Long) extends Value[Nothing, Status]
+  final case class ValueDecimal[+Status](value: Decimal) extends Value[Nothing, Status]
   // Note that Text are assume to be UTF8
-  final case class ValueText(value: String) extends Value[Nothing]
-  final case class ValueTimestamp(value: Time.Timestamp) extends Value[Nothing]
-  final case class ValueDate(value: Time.Date) extends Value[Nothing]
-  final case class ValueParty(value: Ref.Party) extends Value[Nothing]
-  final case class ValueBool(value: Boolean) extends Value[Nothing]
-  case object ValueUnit extends Value[Nothing]
-  final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
-  final case class ValueMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
+  final case class ValueText[+Status](value: String) extends Value[Nothing, Status]
+  final case class ValueTimestamp[+Status](value: Time.Timestamp) extends Value[Nothing, Status]
+  final case class ValueDate[+Status](value: Time.Date) extends Value[Nothing, Status]
+  final case class ValueParty[+Status](value: Ref.Party) extends Value[Nothing, Status]
+  final case class ValueBool[+Status](value: Boolean) extends Value[Nothing, Status]
+  final case class ValueUnit[+Status]() extends Value[Nothing, Status]
+  final case class ValueOptional[+Cid, +Status](value: Option[Value[Cid, Status]])
+      extends Value[Cid, Status]
+  final case class ValueMap[+Cid, +Status](value: SortedLookupList[Value[Cid, Status]])
+      extends Value[Cid, Status]
+
+  def markAsWellTyped[Cid](value: Value[Cid, NotTyped]): Value[Cid, WellTyped] =
+    value.asInstanceOf[Value[Cid, WellTyped]]
+
+  def markAsWellTyped[Cid](value: VersionedValue[Cid, NotTyped]): VersionedValue[Cid, WellTyped] =
+    value.asInstanceOf[VersionedValue[Cid, WellTyped]]
+
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
   // currently those can be tuples, although we should probably ban that.
-  final case class ValueTuple[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
+  final case class ValueTuple[+Cid, +Status](fields: ImmArray[(Name, Value[Cid, Status])])
+      extends Value[Cid, Status]
 
-  implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
+  implicit def `Value Equal instance`[Cid: Equal, Status]: Equal[Value[Cid, Status]] =
     ScalazEqual.withNatural(Equal[Cid].equalIsNatural) {
       ScalazEqual.match2(fallback = false) {
-        case a @ (_: ValueInt64 | _: ValueDecimal | _: ValueText | _: ValueTimestamp |
-            _: ValueParty | _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
-        case r: ValueRecord[Cid] => {
+        case a @ (_: ValueInt64[_] | _: ValueDecimal[_] | _: ValueText[_] | _: ValueTimestamp[_] |
+            _: ValueParty[_] | _: ValueBool[_] | _: ValueDate[_] | _: ValueUnit[_]) => {
+          case b => a == b
+        }
+        case r: ValueRecord[Cid, Status] => {
           case ValueRecord(tycon2, fields2) =>
             import r._
             tycon == tycon2 && fields === fields2
         }
-        case v: ValueVariant[Cid] => {
+        case v: ValueVariant[Cid, Status] => {
           case ValueVariant(tycon2, variant2, value2) =>
             import v._
             tycon == tycon2 && variant == variant2 && value === value2
         }
-        case v: ValueEnum => {
+        case v: ValueEnum[_] => {
           case ValueEnum(tycon2, value2) =>
             import v._
             tycon == tycon2 && value == value2
@@ -314,5 +336,5 @@ object Value {
   }
 
   /*** Keys cannot contain contract ids */
-  type Key = Value[Nothing]
+  type Key = Value[Nothing, NotTyped]
 }

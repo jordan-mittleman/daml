@@ -138,7 +138,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
     val listValue = extractResultFieldFromExerciseTransaction(exerciseCmdTx, "list")
 
-    val list: FrontStack[Value[Tx.TContractId]] = listValue match {
+    val list: FrontStack[Value[Tx.TContractId, WellTyped]] = listValue match {
       case ValueList(x) => x
       case f @ _ => fail(s"Unexpected match: $f")
     }
@@ -220,7 +220,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       size: Int): ExerciseCommand = {
     val choice = "Size"
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
-    val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64)))
+    val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64(_))))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
     ExerciseCommand(templateId, contractId.coid, choice, assertAsVersionedValue(choiceArgs))
   }
@@ -229,7 +229,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       exerciseCmdTx: Transaction,
       expected: Long): Assertion = {
 
-    val value: Value[Tx.TContractId] =
+    val value: Value[Tx.TContractId, WellTyped] =
       extractResultFieldFromExerciseTransaction(exerciseCmdTx, "value")
 
     val actual: Long = value match {
@@ -242,18 +242,18 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
   private def extractResultFieldFromExerciseTransaction(
       exerciseCmdTx: Transaction,
-      fieldName: String): Value[Tx.TContractId] = {
+      fieldName: String): Value[Tx.TContractId, WellTyped] = {
 
     val contractInst: ContractInst[Tx.Value[Tx.TContractId]] = extractResultFromExerciseTransaction(
       exerciseCmdTx)
 
-    val fields: ImmArray[(Option[String], Value[Tx.TContractId])] =
+    val fields: ImmArray[(Option[String], Value[Tx.TContractId, WellTyped])] =
       contractInst.arg.value match {
         case ValueRecord(_, x: ImmArray[_]) => x
         case v @ _ => fail(s"Unexpected match: $v")
       }
 
-    val valueField: Option[(Option[String], Value[Tx.TContractId])] = fields.find {
+    val valueField: Option[(Option[String], Value[Tx.TContractId, WellTyped])] = fields.find {
       case (n, _) => n.contains(fieldName)
     }
 

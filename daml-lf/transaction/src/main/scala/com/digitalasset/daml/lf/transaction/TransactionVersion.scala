@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.value.Value.VersionedValue
+import com.digitalasset.daml.lf.value.Value.{VersionedValue}
 import com.digitalasset.daml.lf.value.ValueVersion
 
 final case class TransactionVersion(protoValue: String)
@@ -27,7 +27,8 @@ object TransactionVersions
   private[transaction] val minExerciseResult = TransactionVersion("7")
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
 
-  def assignVersion(a: GenTransaction[_, _, _ <: VersionedValue[_]]): TransactionVersion = {
+  def assignVersion[Status](
+      a: GenTransaction[_, _, _ <: VersionedValue[_, Status]]): TransactionVersion = {
     require(a != null)
     import VersionTimeline.Implicits._
 

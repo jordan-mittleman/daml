@@ -23,7 +23,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.CompletionEvent.{
@@ -373,13 +372,14 @@ abstract class LedgerBackedIndexService(
   // ContractStore
   override def lookupActiveContract(
       submitter: Ref.Party,
-      contractId: AbsoluteContractId
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+      contractId: Value.AbsoluteContractId
+  ): Future[
+    Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId, Value.WellTyped]]]] =
     contractStore.lookupActiveContract(submitter, contractId)
 
   override def lookupContractKey(
       submitter: Party,
-      key: GlobalKey): Future[Option[AbsoluteContractId]] =
+      key: GlobalKey): Future[Option[Value.AbsoluteContractId]] =
     contractStore.lookupContractKey(submitter, key)
 
   // PartyManagementService

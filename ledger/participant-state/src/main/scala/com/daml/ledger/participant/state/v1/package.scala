@@ -105,6 +105,6 @@ package object v1 {
 
   /** A contract instance with absolute contract identifiers only. */
   type AbsoluteContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
+    Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId, Value.NotTyped]]
 
 }

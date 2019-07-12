@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.transaction.GenTransaction.{
 }
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => V}
-import V.ContractInst
+import V.{ContractInst, WellTyped}
 import com.digitalasset.daml.lf.value.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
@@ -78,7 +78,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
   "isReplayedBy" - {
     // the whole-transaction-relevant parts are handled by equalForest testing
     import Node.isReplayedBy
-    type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
+    type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId, WellTyped]]
     val genEmptyNode
       : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
       case (_, n: CidVal[Node.LeafOnlyNode]) => n
@@ -111,7 +111,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 }
 
 object TransactionSpec {
-  private[this] type Value[+Cid] = V[Cid]
+  private[this] type Value[+Cid] = V[Cid, V.WellTyped]
   type StringTransaction = GenTransaction[String, String, Value[String]]
   def StringTransaction(
       nodes: Map[String, GenNode[String, String, Value[String]]],
@@ -121,21 +121,21 @@ object TransactionSpec {
       children: ImmArray[String],
       hasExerciseResult: Boolean = true): NodeExercises[String, String, Value[String]] =
     NodeExercises(
-      "dummyCoid",
-      Ref.Identifier(
+      targetCoid = Ref.ContractIdString.assertFromString("dummyCoid"),
+      templateId = Ref.Identifier(
         PackageId.assertFromString("-dummyPkg-"),
         QualifiedName.assertFromString("DummyModule:dummyName")),
-      "dummyChoice",
-      None,
-      true,
-      Set.empty,
-      V.ValueUnit,
-      Set.empty,
-      Set.empty,
-      Set.empty,
-      children,
-      if (hasExerciseResult) Some(V.ValueUnit) else None,
-      None
+      choiceId = "dummyChoice",
+      optLocation = None,
+      consuming = true,
+      actingParties = Set.empty,
+      chosenValue = V.ValueUnit(),
+      stakeholders = Set.empty,
+      signatories = Set.empty,
+      controllers = Set.empty,
+      children = children,
+      exerciseResult = if (hasExerciseResult) Some(V.ValueUnit()) else None,
+      key = None
     )
 
   val dummyCreateNode: NodeCreate[String, Value[String]] =
@@ -145,7 +145,7 @@ object TransactionSpec {
         Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),
           QualifiedName.assertFromString("DummyModule:dummyName")),
-        V.ValueUnit,
+        V.ValueUnit[WellTyped],
         ("dummyAgreement")
       ),
       None,

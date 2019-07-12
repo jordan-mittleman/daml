@@ -4,7 +4,6 @@
 package com.digitalasset.platform.sandbox.stores.ledger
 
 import com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
@@ -63,14 +62,13 @@ trait TransactionConversion {
 
     val tx = trans.transaction.mapNodeId(domain.EventId(_))
     filter.filter(tx).map { disclosureByNodeId =>
-      val allEvents = engine.Event
-        .collectEvents(tx, disclosureByNodeId)
+      val allEvents = engine.Event.collectEvents(tx, disclosureByNodeId)
       val events = allEvents.events.map {
         case (nodeId, value) =>
           (nodeId, value match {
-            case e: P.ExerciseEvent[domain.EventId, AbsoluteContractId] =>
+            case e: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId, Lf.WellTyped] =>
               lfExerciseToDomain(nodeId, e)
-            case c: P.CreateEvent[AbsoluteContractId] =>
+            case c: P.CreateEvent[Lf.AbsoluteContractId, Lf.WellTyped] =>
               lfCreateToDomain(nodeId, c, true)
           })
       }
@@ -133,7 +131,7 @@ trait TransactionConversion {
 
   def lfCreateToDomain(
       eventId: domain.EventId,
-      create: P.CreateEvent[Lf.AbsoluteContractId],
+      create: P.CreateEvent[Lf.AbsoluteContractId, Lf.NotTyped],
       includeParentWitnesses: Boolean,
   ): domain.Event.CreatedEvent = {
     domain.Event.CreatedEvent(
@@ -155,7 +153,7 @@ trait TransactionConversion {
 
   def lfExerciseToDomain(
       eventId: domain.EventId,
-      exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId],
+      exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId, Lf.WellTyped],
   ): domain.Event.ExercisedEvent = {
     domain.Event.ExercisedEvent(
       eventId,
@@ -177,7 +175,7 @@ trait TransactionConversion {
 
   def lfConsumingExerciseToDomain(
       eventId: domain.EventId,
-      exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId])
+      exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId, Lf.WellTyped])
     : domain.Event.ArchivedEvent = {
     domain.Event.ArchivedEvent(
       eventId = eventId,
@@ -191,15 +189,18 @@ trait TransactionConversion {
   private def flattenEvents(
       events: Map[
         domain.EventId,
-        engine.Event[domain.EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]],
+        engine.Event[
+          domain.EventId,
+          Lf.AbsoluteContractId,
+          Lf.VersionedValue[Lf.AbsoluteContractId, Lf.WellTyped]]],
       root: domain.EventId,
       verbose: Boolean): List[domain.Event.CreateOrArchiveEvent] = {
     val event = events(root)
     event match {
-      case create: P.CreateEvent[Lf.AbsoluteContractId @unchecked] =>
+      case create: P.CreateEvent[Lf.AbsoluteContractId @unchecked, Lf.WellTyped] =>
         List(lfCreateToDomain(root, create, includeParentWitnesses = false))
 
-      case exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId] =>
+      case exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId, Lf.WellTyped] =>
         val children: List[domain.Event.CreateOrArchiveEvent] =
           exercise.children.toSeq
             .sortBy(ev => getEventIndex(ev.unwrap))

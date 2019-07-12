@@ -23,7 +23,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
   )
 
   private[this] def complexValue = {
-    val builder = ImmArray.newBuilder[(Option[Name], Value[AbsoluteContractId])]
+    val builder = ImmArray.newBuilder[(Option[Name], Value[AbsoluteContractId, WellTyped])]
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
@@ -38,7 +38,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueText("")
     builder += None -> ValueText("abcd-äöü€")
     builder += None -> ValueParty(Party.assertFromString("Alice"))
-    builder += None -> ValueUnit
+    builder += None -> ValueUnit()
     builder += None -> ValueOptional(None)
     builder += None -> ValueOptional(Some(ValueText("Some")))
     builder += None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C")))
@@ -149,15 +149,15 @@ class KeyHasherSpec extends WordSpec with Matchers {
         ValueVersion("4"),
         ValueList(
           FrontStack(
-            ValueList(FrontStack(ValueUnit)),
-            ValueList(FrontStack(ValueUnit, ValueUnit))
+            ValueList(FrontStack(ValueUnit())),
+            ValueList(FrontStack(ValueUnit(), ValueUnit()))
           )))
       val value2 = VersionedValue(
         ValueVersion("4"),
         ValueList(
           FrontStack(
-            ValueList(FrontStack(ValueUnit, ValueUnit)),
-            ValueList(FrontStack(ValueUnit))
+            ValueList(FrontStack(ValueUnit(), ValueUnit())),
+            ValueList(FrontStack(ValueUnit()))
           )))
 
       val tid = templateId("module", "name")
@@ -170,9 +170,13 @@ class KeyHasherSpec extends WordSpec with Matchers {
 
     "not produce collision in Variant constructor" in {
       val value1 =
-        VersionedValue(ValueVersion("4"), ValueVariant(None, Name.assertFromString("A"), ValueUnit))
+        VersionedValue(
+          ValueVersion("4"),
+          ValueVariant(None, Name.assertFromString("A"), ValueUnit()))
       val value2 =
-        VersionedValue(ValueVersion("4"), ValueVariant(None, Name.assertFromString("B"), ValueUnit))
+        VersionedValue(
+          ValueVersion("4"),
+          ValueVariant(None, Name.assertFromString("B"), ValueUnit()))
 
       val tid = templateId("module", "name")
 
@@ -316,7 +320,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
 
     "not produce collision in Optional" in {
       val value1 = VersionedValue(ValueVersion("4"), ValueOptional(None))
-      val value2 = VersionedValue(ValueVersion("4"), ValueOptional(Some(ValueUnit)))
+      val value2 = VersionedValue(ValueVersion("4"), ValueOptional(Some(ValueUnit())))
 
       val tid = templateId("module", "name")
 

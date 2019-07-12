@@ -16,7 +16,7 @@ import scala.collection.JavaConverters._
 import java.util.ArrayList
 
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, WellTyped}
 
 object Speedy {
 
@@ -158,7 +158,7 @@ object Speedy {
             false
         }
 
-    def toValue: V[V.ContractId] =
+    def toValue: V[V.ContractId, WellTyped] =
       toSValue.toValue
 
     def toSValue: SValue =
@@ -174,7 +174,7 @@ object Speedy {
     def print(count: Int) = {
       println(s"Step: $count")
       println("Control:")
-      println(s"  ${ctrl}")
+      println(s"  $ctrl")
       println("Environment:")
       env.forEach { v =>
         println("  " + v.toString)

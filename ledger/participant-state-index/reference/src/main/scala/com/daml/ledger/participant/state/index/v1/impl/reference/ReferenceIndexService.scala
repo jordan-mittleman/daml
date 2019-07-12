@@ -174,7 +174,7 @@ final case class ReferenceIndexService(
           acceptedTx.transaction.nodes(nodeId) match {
             case create: NodeCreate[
                   Value.AbsoluteContractId,
-                  Value.VersionedValue[Value.AbsoluteContractId]] =>
+                  Value.VersionedValue[Value.AbsoluteContractId, Value.WellTyped]] =>
               List(
                 acceptedTx.transactionMeta.workflowId ->
                   AcsUpdateEvent.Create(
@@ -189,7 +189,7 @@ final case class ReferenceIndexService(
             case exe: NodeExercises[
                   NodeId,
                   Value.AbsoluteContractId,
-                  Value.VersionedValue[Value.AbsoluteContractId]] =>
+                  Value.VersionedValue[Value.AbsoluteContractId, Value.WellTyped]] =>
               List(
                 acceptedTx.transactionMeta.workflowId ->
                   AcsUpdateEvent.Archive(
@@ -334,8 +334,8 @@ final case class ReferenceIndexService(
     Right(submitter) exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
   }
 
-  override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
-    : Future[Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]]] =
+  override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId): Future[
+    Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId, Value.WellTyped]]]] =
     futureWithState { state =>
       Future {
         state.activeContracts

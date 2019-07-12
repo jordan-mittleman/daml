@@ -76,7 +76,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
   // here, too.
   private[engine] def translateValue(
       ty0: Type,
-      v0: VersionedValue[AbsoluteContractId]): Result[SValue] = {
+      v0: VersionedValue[AbsoluteContractId, NotTyped]): Result[SValue] = {
     import SValue._
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
@@ -88,7 +88,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
         case CommandPreprocessingException(err) => ResultError(err)
       }
 
-    def go(nesting: Int, ty: Type, value: Value[AbsoluteContractId]): Result[SValue] = {
+    def go(nesting: Int, ty: Type, value: Value[AbsoluteContractId, NotTyped]): Result[SValue] = {
       // we use this to restart when we get a new package that allows us to make progress.
       def restart = exceptionToResultError(go(nesting, ty, value))
 
@@ -98,7 +98,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
         val newNesting = nesting + 1
         (ty, value) match {
           // simple values
-          case (TBuiltin(BTUnit), ValueUnit) =>
+          case (TBuiltin(BTUnit), ValueUnit()) =>
             ResultDone(SUnit(()))
           case (TBuiltin(BTBool), ValueBool(b)) =>
             ResultDone(SBool(b))
@@ -281,14 +281,14 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
     exceptionToResultError(go(0, ty0, v0.value))
   }
 
-  private[engine] def labeledRecordToMap(
-      fields: ImmArray[(Option[String], Value[AbsoluteContractId])])
-    : Option[Map[String, Value[AbsoluteContractId]]] = {
+  private[engine] def labeledRecordToMap[Status](
+      fields: ImmArray[(Option[String], Value[AbsoluteContractId, Status])])
+    : Option[Map[String, Value[AbsoluteContractId, Status]]] = {
     @tailrec
     def go(
-        fields: ImmArray[(Option[String], Value[AbsoluteContractId])],
-        map: Map[String, Value[AbsoluteContractId]])
-      : Option[Map[String, Value[AbsoluteContractId]]] = {
+        fields: ImmArray[(Option[String], Value[AbsoluteContractId, Status])],
+        map: Map[String, Value[AbsoluteContractId, Status]])
+      : Option[Map[String, Value[AbsoluteContractId, Status]]] = {
       fields match {
         case ImmArray() => Some(map)
         case ImmArrayCons((None, _), _) => None
@@ -301,7 +301,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessCreate(
       templateId: Identifier,
-      argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
+      argument: VersionedValue[AbsoluteContractId, NotTyped]): Result[(Type, SpeedyCommand)] =
     Result.needDataType(
       compiledPackages,
       templateId,
@@ -341,7 +341,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       templateId: Identifier,
       contractId: ContractId,
       choiceId: ChoiceName,
-      argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
+      argument: VersionedValue[AbsoluteContractId, NotTyped]): Result[(Type, SpeedyCommand)] =
     Result.needTemplate(
       compiledPackages,
       templateId,
@@ -362,9 +362,9 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessExerciseByKey(
       templateId: Identifier,
-      contractKey: VersionedValue[AbsoluteContractId],
+      contractKey: VersionedValue[AbsoluteContractId, NotTyped],
       choiceId: ChoiceName,
-      argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
+      argument: VersionedValue[AbsoluteContractId, NotTyped]): Result[(Type, SpeedyCommand)] =
     Result.needTemplate(
       compiledPackages,
       templateId,
@@ -391,9 +391,9 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessCreateAndExercise(
       templateId: ValueRef,
-      createArgument: VersionedValue[AbsoluteContractId],
+      createArgument: VersionedValue[AbsoluteContractId, NotTyped],
       choiceId: ChoiceName,
-      choiceArgument: VersionedValue[AbsoluteContractId]
+      choiceArgument: VersionedValue[AbsoluteContractId, NotTyped]
   ): Result[(Type, SpeedyCommand)] = {
     Result.needDataType(
       compiledPackages,

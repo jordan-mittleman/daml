@@ -3,35 +3,28 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data._
+import java.io.{File, PrintStream, PrintWriter, StringWriter}
+import java.nio.file.{Path, Paths}
+
+import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.Pretty._
 import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.value.Value
-import Value._
-import java.io.{File, PrintWriter, StringWriter}
-import java.nio.file.{Path, Paths}
-import java.io.PrintStream
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.VersionTimeline
-
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.UniversalArchiveReader
+import com.digitalasset.daml.lf.transaction.VersionTimeline
+import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.daml.lf.validation.Validation
 import org.jline.builtins.Completers
-import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
 import org.jline.reader.impl.history.DefaultHistory
+import org.jline.reader.{History, LineReader, LineReaderBuilder}
 
-import scala.collection.immutable.ListMap
 import scala.collection.JavaConverters._
-import scala.util.parsing.combinator._
+import scala.collection.immutable.ListMap
 
 object Main extends App {
   // idempotent; force stdout to output in UTF-8 -- in theory it should pick it up from
@@ -367,74 +360,9 @@ object Repl {
   // The identifier can be fully-qualified (Foo.Bar@<package id>). If package is not
   // specified, the last used package is used.
   // If the resulting type is a scenario it is automatically executed.
-  def invokePure(state: State, id: String, args: Seq[String]): Unit = {
-    //try {
-    val argExprs = ValueParser.parseArgs(args).map(valueToExpr)
-    lookup(state, id) match {
-      case None =>
-        println("Error: definition '" + id + "' not found. Try :list."); usage
-      case Some((lfVer, DValue(_, _, body, _))) =>
-        val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
+  def invokePure(state: State, id: String, args: Seq[String]): Unit = ???
 
-        val machine =
-          Speedy.Machine.fromExpr(
-            expr = expr,
-            checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
-            compiledPackages = PureCompiledPackages(state.packages).right.get,
-            scenario = false
-          )
-        var count = 0
-        val startTime = System.nanoTime()
-        var errored = false
-        while (!machine.isFinal && !errored) {
-          machine.print(count)
-          machine.step match {
-            case SResultError(err) =>
-              println(prettyError(err, machine.ptx).render(128))
-              errored = true
-            case SResultContinue =>
-              ()
-            case other =>
-              sys.error("unimplemented callback: " + other.toString)
-          }
-          count += 1
-        }
-        val endTime = System.nanoTime()
-        val diff = (endTime - startTime) / 1000 / 1000
-        machine.print(count)
-        println(s"steps: $count")
-        println(s"time: ${diff}ms")
-        if (!errored) {
-          val result = machine.ctrl match {
-            case Speedy.CtrlValue(sv) =>
-              prettyValue(true)(sv.toValue).render(128)
-            case x => x.toString
-          }
-          println("result:")
-          println(result)
-        }
-      case Some(_) =>
-        println("Error: " + id + " not a value.")
-    }
-  }
-
-  def buildExpr(state: State, idAndArgs: Seq[String]): Option[(LanguageVersion, Expr)] =
-    idAndArgs match {
-      case id :: args =>
-        lookup(state, id) match {
-          case None =>
-            println("Error: " + id + " not found.")
-            None
-          case Some((lfVer, DValue(_, _, body, _))) =>
-            val argExprs = args.map(ValueParser.parse).map(valueToExpr)
-            Some((lfVer, argExprs.foldLeft(body)((e, arg) => EApp(e, arg))))
-          case Some(_) =>
-            println("Error: " + id + " is not a value.")
-            None
-        }
-      case _ =>
-        usage(); None
-    }
+  def buildExpr(state: State, idAndArgs: Seq[String]): Option[(LanguageVersion, Expr)] = ???
 
   def invokeScenario(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExpr(state, idAndArgs)
@@ -562,116 +490,4 @@ object Repl {
     """.stripMargin)
   }
 
-  object ValueParser extends RegexParsers {
-    // FIXME(JM): Parse types as well to allow creation of nominal records?
-    val dummyId =
-      Ref.Identifier(
-        PackageId.assertFromString("-dummy package-"),
-        QualifiedName.assertFromString("Dummy:Dummy"))
-
-    def pDecimal: Parser[Value[Nothing]] = """\d+\.\d+""".r ^^ { s =>
-      ValueDecimal(Decimal.assertFromString(s))
-    }
-    def pInt64: Parser[Value[Nothing]] = """\d+""".r ^^ { s =>
-      ValueInt64(s.toLong)
-    }
-    def pText: Parser[Value[Nothing]] = """\"(\w*)\"""".r ^^ { s =>
-      ValueText(s.stripPrefix("\"").stripSuffix("\""))
-    }
-    def pTrue: Parser[Value[Nothing]] = "true" ^^ { _ =>
-      ValueBool(true)
-    }
-    def pFalse: Parser[Value[Nothing]] = "false" ^^ { _ =>
-      ValueBool(false)
-    }
-    def pVariant: Parser[Value[Nothing]] =
-      """[A-Z][a-z]*""".r ~ ("(" ~> pValue <~ ")").? ^^ {
-        case variant ~ optValue =>
-          ValueVariant(Some(dummyId), Name.assertFromString(variant), optValue.getOrElse(ValueUnit))
-      }
-    def pList: Parser[Value[Nothing]] =
-      """\[\s*""".r ~> (pValue <~ """\s*,\s*""".r).* ~ pValue.? <~ """\s*\]""".r ^^ {
-        case front ~ Some(last) => ValueList(FrontStack(ImmArray(front :+ last)))
-        case _ => ValueList(FrontStack.empty)
-      }
-
-    def pField: Parser[(Name, Value[Nothing])] =
-      ("""(\w+)""".r ~ """\s*=\s*""".r ~ pValue) ^^ {
-        case field ~ _ ~ value => Name.assertFromString(field) -> value
-      }
-    def pFields: Parser[List[(Name, Value[Nothing])]] =
-      ("""\s*""".r ~> pField <~ """\ *,\ *""".r).* ~ pField.? ^^ {
-        case fs ~ Some(last) => fs :+ last
-        case _ => List()
-      }
-    def pRecord: Parser[Value[Nothing]] = "{" ~> pFields <~ "}" ^^ { fs =>
-      ValueRecord(Some(dummyId), ImmArray(fs.map {
-        case (lbl, v) => (Some(lbl), v)
-      }))
-    }
-
-    def pValue: Parser[Value[Nothing]] =
-      pDecimal | pInt64 | pVariant | pRecord | pList | pText
-
-    def pValues: Parser[Seq[Value[Nothing]]] = (pValue <~ """\s*""".r).*
-
-    case class ParseError(error: String) extends RuntimeException(error)
-
-    def parse(s: String): Value[Nothing] =
-      parseAll(pValue, s) match {
-        case Success(v, _) => v
-        case err => throw ParseError(err.toString)
-      }
-
-    def parseArgs(s: Seq[String]): Seq[Value[Nothing]] =
-      parseAll(pValues, s.mkString(" ")) match {
-        case Success(v, _) => v
-        case err => throw ParseError(err.toString)
-      }
-  }
-
-  def debugParse(args: Seq[String]): Unit =
-    try {
-      println(
-        ValueParser
-          .parseArgs(args)
-          .map(x => prettyValue(true)(x).render(128))
-          .mkString("\n"))
-    } catch {
-      case ValueParser.ParseError(err) => println("parse error: " + err)
-    }
-
-  def valueToExpr(v: Value[AbsoluteContractId]): Expr = {
-    // FIXME(JM): Fix the handling of types.
-    val dummyTyCon =
-      TypeConName(
-        PackageId.assertFromString("-dummy-"),
-        QualifiedName.assertFromString("Dummy:Dummy"))
-    val dummyTyApp = TypeConApp(dummyTyCon, ImmArray.empty)
-    v match {
-      case ValueText(s) => EPrimLit(PLText(s))
-      case ValueInt64(i) => EPrimLit(PLInt64(i))
-      case ValueDecimal(d) => EPrimLit(PLDecimal(d))
-      case ValueVariant(_, variant, value) =>
-        EVariantCon(dummyTyApp, variant, valueToExpr(value))
-      case ValueEnum(_, constructor) =>
-        EVariantCon(dummyTyApp, constructor, EUnit)
-      case ValueRecord(_, fs) =>
-        ETupleCon(fs.map(kv => (kv._1.get, valueToExpr(kv._2))))
-      case ValueTuple(fs) =>
-        ETupleCon(fs.map(kv => (kv._1, valueToExpr(kv._2))))
-      case ValueUnit => EUnit
-      case ValueBool(b) => EPrimCon(if (b) PCTrue else PCFalse)
-      case ValueList(xs) =>
-        ECons(TTyCon(dummyTyCon), xs.map(valueToExpr).toImmArray, ENil(TTyCon(dummyTyCon)))
-      case ValueParty(p) => EPrimLit(PLParty(p))
-      case ValueTimestamp(t) => EPrimLit(PLTimestamp(t))
-      case ValueDate(t) => EPrimLit(PLDate(t))
-      case ValueContractId(acoid) => EContractId(acoid.coid, dummyTyCon)
-      case ValueOptional(Some(e)) => ESome(TTyCon(dummyTyCon), valueToExpr(e))
-      case ValueOptional(None) => ENone(TTyCon(dummyTyCon))
-      case ValueMap(_) =>
-        sys.error(s"Cannot represent Map in expressions")
-    }
-  }
 }
