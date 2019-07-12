@@ -21,4 +21,6 @@ the release script will make a proper link to JIRA.
 
 ### Fixed
 
+Sandbox: Fix a bug preventing more than one package to Sandbox with a Postgres backend (see #2130).
+
 ### Removed

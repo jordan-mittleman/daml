@@ -999,6 +999,7 @@ private class PostgresLedgerDao(
     """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
           |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
           |from parameters
+          |on conflict (package_id) do nothing
           |""".stripMargin
 
   private val SQL_SELECT_PACKAGES =
@@ -1073,15 +1074,15 @@ private class PostgresLedgerDao(
                     "package" -> p._1.toByteArray
                 )
               )
-            executeBatchSql(
-              SQL_INSERT_PACKAGE,
-              namedPackageParams
-            )
-            PersistenceResponse.Ok
-          }.recover {
-            case NonFatal(e) if e.getMessage.contains("duplicate key") =>
-              conn.rollback()
+            import scala.math.min
+            val changeCount = executeBatchSql(SQL_INSERT_PACKAGE, namedPackageParams)
+              .map(min(0, _))
+              .sum
+            if (changeCount == packages.length) {
+              PersistenceResponse.Ok
+            } else {
               PersistenceResponse.Duplicate
+            }
           }.get
       }
     )
