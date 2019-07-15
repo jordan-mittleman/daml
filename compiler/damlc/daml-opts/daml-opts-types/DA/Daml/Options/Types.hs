@@ -22,7 +22,6 @@ import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Pretty (renderPretty)
-import Data.Foldable (toList)
 import Data.Maybe
 import qualified System.Directory as Dir
 import System.FilePath
@@ -103,9 +102,8 @@ basePackages = ["daml-prim", "daml-stdlib"]
 mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
-    let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
-    pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
+    defaultPkgDbDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db" </> "pkg-db_dir")
+    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDbDir, projectPackageDatabase]
     case optHlintUsage of
       Just (HlintEnabled dir) -> checkDirExists dir
       _ -> return ()
