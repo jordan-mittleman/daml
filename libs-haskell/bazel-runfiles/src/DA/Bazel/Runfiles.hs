@@ -34,6 +34,9 @@ create = do
 
 rlocation :: Runfiles -> FilePath -> IO FilePath
 rlocation (Resources resources) fp = do
+  -- If the current executable was packaged using @package_app@, then data
+  -- files might appear right underneath the resources directory.
+  -- See @bazel_tools/packaging/packaging.bzl@.
   let shortPath = resources </> takeFileName fp
   let fullPath = resources </> fp
   shortPathExists <- doesPathExist shortPath
