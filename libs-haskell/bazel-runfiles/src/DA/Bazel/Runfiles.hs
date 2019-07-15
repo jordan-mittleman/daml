@@ -37,9 +37,7 @@ rlocation (Resources resources) fp = do
   let shortPath = resources </> takeFileName fp
   let fullPath = resources </> fp
   shortPathExists <- doesPathExist shortPath
-  if shortPathExists
-      then pure $! shortPath
-      else pure $! fullPath
+  pure $! if shortPathExists then shortPath else fullPath
 rlocation (BazelRunfiles runfiles) fp =
   pure $! Bazel.Runfiles.rlocation runfiles fp
 
