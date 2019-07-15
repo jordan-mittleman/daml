@@ -137,9 +137,9 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     virtualResources <- newTVarIO Map.empty
     virtualResourcesNotes <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = do
-            modifyTVar' virtualResources(Map.insert vr doc)
-            modifyTVar' virtualResourcesNotes(Map.delete vr)
-        eventLogger (EventVirtualResourceNoteSet vr note) = modifyTVar' virtualResourcesNotes(Map.insert vr note)
+            modifyTVar' virtualResources (Map.insert vr doc)
+            modifyTVar' virtualResourcesNotes (Map.delete vr)
+        eventLogger (EventVirtualResourceNoteSet vr note) = modifyTVar' virtualResourcesNotes (Map.insert vr note)
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
