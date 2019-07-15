@@ -47,6 +47,7 @@ Just like ``Scenario`` is a recipe for a test, ``Update`` is a recipe for a tran
 
 You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
 
+.. At this point I’m wondering if I need to include parantheses for it to be read as a single Update
 You could write this as ``submit alice (create Token with owner = alice)``, but just like scenarios, you can assemble updates using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the scenario above gives the same result, whilst being easier to read.
 
 Running scenarios
